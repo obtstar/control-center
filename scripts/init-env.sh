@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # init-env.sh — 企业内网 Agent 平台环境一键初始化（模拟综合测试环境）
 # 依据：docs/architecture/13-repo-template.md（目录布局）
-#       docs/architecture/16-linux-permissions.md（用户/组/权限/sudoers）
+#       docs/architecture/16-linux-permissions.md（用户/权限，单人模型）
 #       docs/architecture/10-deployment.md（docker-compose 测试环境）
 set -euo pipefail
 
@@ -18,15 +18,23 @@ usage() {
                     连接编排节点取代码、本地执行、结果回传（见 10 章 executor 代理）
   --control-api URL 编排节点 control-api 地址（executor 模式使用，
                     不传则交互式询问，如 http://192.168.1.10:8080）
-  --skip-users      跳过 Linux 用户/组/sudoers 配置
+  --skip-users      跳过 Linux 用户配置
   --skip-repos      跳过代码仓库骨架初始化
   --skip-compose    跳过 docker-compose 生成与启动
+  --skip-tooling    跳过 pi / openskills 安装与 ~/.pi 配置
+  --check           仅做环境校验（预检 + 后检），不执行初始化
   -h, --help        显示帮助
+环境变量:
+  NPM_REGISTRY      npm 内网镜像（如 http://npm.internal:4873），安装 pi/openskills 时使用
+  LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
 EOF
 }
 
 EXECUTOR=0
 CONTROL_API=""
+SKIP_TOOLING=0
+CHECK_ONLY=0
+LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --home) BASE_HOME="$2"; shift 2 ;;
@@ -35,6 +43,8 @@ while [[ $# -gt 0 ]]; do
     --skip-users) SKIP_USERS=1; shift ;;
     --skip-repos) SKIP_REPOS=1; shift ;;
     --skip-compose) SKIP_COMPOSE=1; shift ;;
+    --skip-tooling) SKIP_TOOLING=1; shift ;;
+    --check) CHECK_ONLY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "未知参数: $1" >&2; usage; exit 1 ;;
   esac
@@ -42,6 +52,82 @@ done
 
 log() { printf '\033[1;34m[init]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
+
+# ── 0. 环境校验（初始化前预检 / 初始化后后检）──────────────────
+CHECK_FAIL=0
+chk_pass() { printf '  \033[1;32m[PASS]\033[0m %s\n' "$*"; }
+chk_warn() { printf '  \033[1;33m[WARN]\033[0m %s\n' "$*"; }
+chk_fail() { printf '  \033[1;31m[FAIL]\033[0m %s\n' "$*"; CHECK_FAIL=$((CHECK_FAIL+1)); }
+
+check_pre() {
+  log "环境预检（base: $BASE_HOME）"
+  grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null \
+    && chk_pass "WSL 环境" || chk_warn "非 WSL（Linux 原生可用，路径语义一致）"
+
+  local c
+  for c in git python3 curl; do
+    command -v "$c" >/dev/null && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
+  done
+  for c in npm docker java node; do
+    command -v "$c" >/dev/null && chk_pass "命令: $c（可选）" || chk_warn "缺少可选命令: $c"
+  done
+
+  python3 -c 'import ensurepip' 2>/dev/null \
+    && chk_pass "python3 venv 支持" || chk_warn "缺 ensurepip：apt install python3-venv"
+
+  local avail
+  avail=$(df -Pm "$BASE_HOME" 2>/dev/null | awk 'NR==2{print $4}') || true
+  [[ -n "$avail" && "$avail" -ge 2048 ]] \
+    && chk_pass "磁盘空间: ${avail}MB 可用" || chk_warn "磁盘空间不足 2GB（${avail:-未知}MB）"
+
+  [[ -w "$BASE_HOME" || ! -e "$BASE_HOME" ]] \
+    && chk_pass "目录可写: $BASE_HOME" || chk_fail "目录不可写: $BASE_HOME"
+
+  if command -v curl &>/dev/null; then
+    curl -sf --max-time 5 -o /dev/null "$LITELLM_ENDPOINT/v1/models" \
+      && chk_pass "LiteLLM 代理可达: $LITELLM_ENDPOINT" \
+      || chk_warn "LiteLLM 代理暂不可达（$LITELLM_ENDPOINT）"
+  fi
+}
+
+check_post() {
+  log "环境后检（base: $BASE_HOME）"
+  local d
+  if [[ $EXECUTOR -eq 1 ]]; then
+    for d in executor/workspace executor/cache executor/logs; do
+      [[ -d "$BASE_HOME/$d" ]] && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
+    done
+    [[ -f "$BASE_HOME/executor/.env" ]] && chk_pass "executor/.env" || chk_fail "缺失 executor/.env"
+    grep -q 'EXECUTOR_TOKEN=change-me' "$BASE_HOME/executor/.env" 2>/dev/null \
+      && chk_warn "EXECUTOR_TOKEN 仍为占位符" || chk_pass "EXECUTOR_TOKEN 已配置"
+    id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
+  else
+    for d in control-center/docs control-center/orchestration control-center/registry \
+             repos wt data/mysql logs deploy; do
+      [[ -d "$BASE_HOME/$d" ]] && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
+    done
+    [[ -f "$BASE_HOME/control.env" ]] && chk_pass "control.env" || chk_fail "缺失 control.env"
+    grep -qF 'control.env' "$BASE_HOME/.bashrc" 2>/dev/null \
+      && chk_pass "bashrc 挂载" || chk_warn "bashrc 未挂载 control.env"
+    [[ -x "$BASE_HOME/.venv/bin/python" ]] && chk_pass "Python venv" || chk_warn "venv 未就绪"
+    [[ -f "$BASE_HOME/deploy/docker-compose.yml" ]] \
+      && chk_pass "docker-compose.yml" || chk_warn "compose 未生成"
+    local r
+    for r in control-api control-web control-db; do
+      [[ -d "$BASE_HOME/repos/$r/.git" ]] && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
+    done
+    id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
+  fi
+  [[ -f "$BASE_HOME/.pi/models.json" ]] \
+    && chk_pass ".pi/models.json" || chk_warn ".pi/models.json 未生成（--skip-tooling？）"
+
+  if [[ $CHECK_FAIL -gt 0 ]]; then
+    printf '\033[1;31m[check]\033[0m 后检发现 %d 项 FAIL\n' "$CHECK_FAIL"
+  else
+    printf '\033[1;32m[check]\033[0m 后检通过（WARN 项可择情处理）\n'
+  fi
+  return "$CHECK_FAIL"
+}
 
 # ── 1. 目录结构（13.1）────────────────────────────────────────
 init_dirs() {
@@ -54,6 +140,7 @@ init_dirs() {
     "$BASE_HOME/control-center/orchestration/prompts" \
     "$BASE_HOME/control-center/orchestration/skills" \
     "$BASE_HOME/control-center/orchestration/workflows" \
+    "$BASE_HOME/control-center/registry" \
     "$BASE_HOME/repos" \
     "$BASE_HOME/wt" \
     "$BASE_HOME/data/mysql" \
@@ -66,61 +153,144 @@ init_dirs() {
   chmod 770 "$BASE_HOME/repos" "$BASE_HOME/wt"
 }
 
-# ── 2. Linux 用户/组/sudoers（16.2 / 16.3 / 16.5）─────────────
+# ── 2. Linux 用户（16.2 / 16.3，单人模型：owner + agent）──────
 init_users() {
   if [[ $EUID -ne 0 ]]; then
-    warn "非 root，跳过用户/组配置（可用 sudo 重试，或 --skip-users）"
+    warn "非 root，跳过用户配置（可用 sudo 重试，或 --skip-users）"
     return 0
   fi
 
-  log "创建用户组 dev-group / agent-group"
-  groupadd -f dev-group
-  groupadd -f agent-group
+  # 单人模型：owner = 当前实际用户；Agent 统一一个 agent 账号（本机 + 执行节点通用）
+  # 代码/Worktree 全部在 owner home 下；agent 仅保留极简配置目录 $BASE_HOME/.agent
+  local owner ogroup
+  owner="${SUDO_USER:-$(logname 2>/dev/null || echo dev)}"
+  ogroup="$(id -gn "$owner")"
 
-  # 角色账号（16.2）。dev-user 角色映射到当前实际用户（加入 dev-group）。
-  local role_user
-  role_user="${SUDO_USER:-$(logname 2>/dev/null || echo dev)}"
-
-  create_user() { # $1=user $2=shell $3=groups
-    if ! id "$1" &>/dev/null; then
-      useradd -m -s "$2" ${3:+-G "$3"} "$1"
-      log "创建用户 $1"
-    fi
-  }
-
-  create_user dev-admin /bin/bash "dev-group"
-  create_user agent-admin /usr/sbin/nologin "agent-group"
-  create_user agent-readonly /usr/sbin/nologin "agent-group"
-  create_user agent-auto /usr/sbin/nologin "agent-group"
-  create_user agent-maintenance /usr/sbin/nologin "agent-group"
-
-  if id "$role_user" &>/dev/null; then
-    usermod -aG dev-group "$role_user"
-    log "当前用户 $role_user 加入 dev-group（对应 dev-user 角色）"
+  if ! id agent &>/dev/null; then
+    useradd -M -d "$BASE_HOME/.agent" -s /usr/sbin/nologin agent
+    log "创建用户 agent（非 root、无 sudo、不使用独立 home）"
   fi
+  mkdir -p "$BASE_HOME/.agent"
+  chown -R agent:agent "$BASE_HOME/.agent"
+  chmod 750 "$BASE_HOME/.agent"
 
-  # 目录属主（16.3）
-  chown -R dev-admin:dev-group "$BASE_HOME/control-center" "$BASE_HOME/repos" \
-    "$BASE_HOME/data" "$BASE_HOME/logs"
-  chown -R agent-admin:agent-group "$BASE_HOME/wt"
+  # agent 加入 owner 组获得仓库/技能只读通道；owner home 保持 750（组 r-x）
+  usermod -aG "$ogroup" agent
+  chgrp -R "$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" 2>/dev/null || true
 
-  # sudoers 白名单（16.5）
-  local sudoers=/etc/sudoers.d/agent-control
-  cat > "$sudoers" <<'EOF'
-# Agent 用户无 sudo
-# dev-user 仅允许受限 git 操作
-%dev-group ALL=(root) /usr/bin/git push origin dev
-# 部署/发布 main、release 需 dev-admin，且必须带审批脚本
-dev-admin ALL=(root) /opt/control/bin/release.sh
-EOF
-  chmod 440 "$sudoers"
-  if command -v visudo &>/dev/null; then
-    visudo -cf "$sudoers" >/dev/null
-  fi
-  log "sudoers 白名单已写入 $sudoers"
+  # 目录属主（16.3）：owner 拥有控制面，agent 独占 ~/wt
+  chown -R "$owner:$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" \
+    "$BASE_HOME/data" "$BASE_HOME/logs" 2>/dev/null || true
+  chown -R "agent:$ogroup" "$BASE_HOME/wt"
+  chmod 770 "$BASE_HOME/wt"
+  log "目录属主: owner=$owner（control-center/repos/data/logs），agent（wt，配置目录 .agent）"
+  # 16.5：agent 用户不在 sudoers 中，无需写 sudoers 规则
 }
 
-# ── 3. 代码仓库骨架（13.2）────────────────────────────────────
+# ── 3. 环境变量配置 ───────────────────────────────────────────
+init_env_config() {
+  local env_file="$BASE_HOME/control.env"
+  log "写入环境变量配置: $env_file"
+  cat > "$env_file" <<EOF
+# control.env — Agent 平台环境变量（13/15 章），由 init-env.sh 生成
+export CONTROL_HOME="$BASE_HOME/control-center"
+export REPOS_ROOT="$BASE_HOME/repos"
+export WORKTREE_ROOT="$BASE_HOME/wt"
+export CONTROL_DATA="$BASE_HOME/data"
+export CONTROL_LOGS="$BASE_HOME/logs"
+export LITELLM_ENDPOINT="$LITELLM_ENDPOINT"
+# export LITELLM_API_KEY=    # 密钥不落盘，按需填入或经密钥管理注入
+# export NPM_REGISTRY=       # npm 内网镜像，如 http://npm.internal:4873
+# export PIP_INDEX_URL=      # pip 内网镜像，如 http://pypi.internal/simple
+EOF
+  chmod 600 "$env_file"
+
+  # bashrc 幂等挂载
+  local bashrc="$BASE_HOME/.bashrc"
+  if [[ -w "$BASE_HOME" ]]; then
+    grep -qF "control.env" "$bashrc" 2>/dev/null || \
+      echo '[[ -f ~/control.env ]] && source ~/control.env' >> "$bashrc"
+  fi
+}
+
+# ── 4. Python 虚拟环境 ────────────────────────────────────────
+init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
+  local home="$1" user="${2:-}"
+  command -v python3 >/dev/null || { warn "未安装 python3，跳过虚拟环境"; return 0; }
+  if [[ -d "$home/.venv" ]]; then
+    log "虚拟环境已存在，跳过: $home/.venv"
+  else
+    log "创建 Python 虚拟环境: $home/.venv"
+    if ! python3 -m venv "$home/.venv" >/dev/null 2>&1; then
+      rm -rf "$home/.venv"
+      warn "venv 创建失败（Debian/Ubuntu 需先 apt install python3-venv），跳过"
+      return 0
+    fi
+    # pip 内网镜像（PIP_INDEX_URL 已 export 则自动生效）
+    "$home/.venv/bin/pip" install --quiet --upgrade pip \
+      || warn "pip 升级失败（网络受限？），已保留自带 pip"
+    # 控制中心自带依赖清单则一并安装
+    if [[ -f "$home/control-center/requirements.txt" ]]; then
+      "$home/.venv/bin/pip" install --quiet -r "$home/control-center/requirements.txt" \
+        && log "已安装 control-center/requirements.txt"
+    fi
+  fi
+  [[ -n "$user" ]] && id "$user" &>/dev/null && chown -R "$user:$user" "$home/.venv"
+}
+
+# ── 5. pi / openskills 安装与配置 ─────────────────────────────
+install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 chown）
+  local home="$1" user="${2:-}"
+
+  # 5.1 pi（Earendil Pi Coding Agent，02 章执行层核心工具）
+  if command -v pi &>/dev/null; then
+    log "pi 已安装，跳过"
+  elif command -v npm &>/dev/null; then
+    npm install -g --ignore-scripts @earendil-works/pi-coding-agent \
+      ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+      && log "pi 安装完成" || warn "pi 安装失败（网络受限？可 vendor 后重试）"
+  else
+    warn "未安装 npm，跳过 pi 安装（需 Node.js 环境）"
+  fi
+
+  # 5.2 ~/.pi/models.json：自定义 provider 指向企业 LiteLLM 代理（04 章）
+  mkdir -p "$home/.pi"
+  if [[ ! -f "$home/.pi/models.json" ]]; then
+    cat > "$home/.pi/models.json" <<EOF
+{
+  "providers": [{
+    "name": "litellm-enterprise",
+    "base_url": "$LITELLM_ENDPOINT/v1",
+    "api_key": "\${LITELLM_API_KEY}",
+    "models": ["coding", "cheap", "heavy"]
+  }]
+}
+EOF
+    chmod 600 "$home/.pi/models.json"
+    log "已生成 $home/.pi/models.json（LiteLLM 代理，别名 coding/cheap/heavy）"
+  fi
+
+  # 5.3 openskills（07.3：SKILL.md 技能管理）
+  if command -v openskills &>/dev/null; then
+    log "openskills 已安装，跳过"
+  elif command -v npm &>/dev/null; then
+    npm install -g --ignore-scripts openskills \
+      ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+      && log "openskills 安装完成" || warn "openskills 安装失败，可后续手动安装"
+  fi
+
+  # 5.4 技能目录软链：~/.pi/skills → 控制中心 orchestration/skills（Git 版本化）
+  if [[ -d "$BASE_HOME/control-center/orchestration/skills" ]]; then
+    ln -sfn "$BASE_HOME/control-center/orchestration/skills" "$home/.pi/skills"
+    log "技能目录已链接: $home/.pi/skills → control-center/orchestration/skills"
+  fi
+
+  # root 模式下把配置归属目标用户
+  if [[ -n "$user" ]] && id "$user" &>/dev/null; then
+    chown -R "$user:$user" "$home/.pi" "$home/.venv" 2>/dev/null || true
+  fi
+}
+# ── 6. 代码仓库骨架（13.2）────────────────────────────────────
 init_repo_skeleton() { # $1=repo 名
   local repo="$BASE_HOME/repos/$1"
   [[ -d "$repo/.git" ]] && { log "仓库已存在，跳过: $1"; return 0; }
@@ -152,7 +322,7 @@ init_repos() {
   done
 }
 
-# ── 4. docker-compose 测试环境（10）───────────────────────────
+# ── 7. docker-compose 测试环境（10）───────────────────────────
 init_compose() {
   local deploy="$BASE_HOME/deploy"
   log "生成 compose 与 .env 模板: $deploy"
@@ -243,11 +413,12 @@ init_executor() {
   mkdir -p "$BASE_HOME/executor"/{workspace,cache,logs}
   chmod 750 "$BASE_HOME/executor"
 
-  # 专用执行账号（16.2/16.8）：root 时创建 agent-exec 并接管工作区
+  # 专用执行账号（16.2：统一 agent 用户，不使用独立 home，配置落 .agent）
   if [[ $EUID -eq 0 ]]; then
-    id agent-exec &>/dev/null || useradd -m -s /usr/sbin/nologin agent-exec
-    chown -R agent-exec:agent-exec "$BASE_HOME/executor"
-    log "executor 服务账号: agent-exec（非 root、无 sudo）"
+    id agent &>/dev/null || useradd -M -d "$BASE_HOME/.agent" -s /usr/sbin/nologin agent
+    mkdir -p "$BASE_HOME/.agent"
+    chown -R agent:agent "$BASE_HOME/executor" "$BASE_HOME/.agent"
+    log "executor 服务账号: agent（非 root、无 sudo）"
   fi
 
   # 能力标签按本机工具链探测
@@ -258,35 +429,65 @@ init_executor() {
   local tag_csv
   tag_csv=$(IFS=,; echo "${tags[*]:-}")
 
+  # executor_id 默认取主机名，须与 registry/executors.yaml 中的登记一致
+  local executor_id
+  executor_id="$(hostname 2>/dev/null || echo pc-01)"
+
   [[ -f "$BASE_HOME/executor/.env" ]] || cat > "$BASE_HOME/executor/.env" <<EOF
 # executor 节点配置（10 章 executor 代理模式）
 CONTROL_API=$CONTROL_API
+EXECUTOR_ID=$executor_id
 EXECUTOR_TOKEN=change-me
 EXECUTOR_TAGS=$tag_csv
 EXECUTOR_SLOTS=1
 EOF
   chmod 600 "$BASE_HOME/executor/.env"
 
-  # 向 control-api 注册（失败不阻断，executor 服务启动时会重试注册/心跳）
-  if command -v curl &>/dev/null; then
-    curl -sf -X POST "$CONTROL_API/api/agents/register" \
-      -H "Authorization: Bearer change-me" \
-      -H "Content-Type: application/json" \
-      -d "{\"type\":\"executor\",\"tags\":\"$tag_csv\",\"slots\":1}" \
-      && log "已向 control-api 注册（tags: $tag_csv）" \
-      || warn "注册失败（control-api 未就绪？），executor 服务启动后将自动重试"
+  cat <<EOF
+
+  登记步骤（声明式，无注册接口）：
+  1. 在控制中心仓库 registry/executors.yaml 新增条目并合并：
+       - executor_id: $executor_id
+         tags: [${tag_csv//,/, }]
+         slots: 1
+         token_ref: env:EXECUTOR_TOKEN_$(echo "$executor_id" | tr 'a-z-' 'A-Z_')
+  2. 将服务端签发的 token 写入本文件 EXECUTOR_TOKEN
+  3. 启动 executor 服务后开始心跳/领取任务
+
+EOF
+  log "executor 工作区就绪: $BASE_HOME/executor/workspace（git fetch 任务分支后本地执行 ci/ 白名单脚本）"
+
+  # 执行节点工具链：pi + openskills + models.json（16.7，配置落 agent 配置目录）
+  if [[ $SKIP_TOOLING -eq 0 ]]; then
+    install_agent_tooling "$BASE_HOME/.agent" agent
   fi
-  log "executor 工作区就绪: $BASE_HOME/executor/workspace（git fetch 任务分支后本地执行 ci/ 脚本）"
+  init_venv "$BASE_HOME" agent
 }
 
 # ── main ──────────────────────────────────────────────────────
+if [[ $CHECK_ONLY -eq 1 ]]; then
+  check_pre
+  check_post || true
+  exit 0
+fi
+
+check_pre
 if [[ $EXECUTOR -eq 1 ]]; then
   init_executor
-  log "完成（executor 模式）。本机已注册为执行节点，编排节点无需在本机初始化"
+  check_post || true
+  log "完成（executor 模式）。请在 registry/executors.yaml 登记本机后启动 executor 服务"
 else
   init_dirs
   [[ $SKIP_USERS -eq 1 ]]   || init_users
+  init_env_config
+  OWNER="${SUDO_USER:-$USER}"
+  init_venv "$BASE_HOME" "$OWNER"
+  if [[ $SKIP_TOOLING -eq 0 ]]; then
+    install_agent_tooling "$BASE_HOME" "$OWNER"          # 人工通道（VSCode/CLI）
+    [[ $EUID -eq 0 ]] && install_agent_tooling "$BASE_HOME/.agent" agent  # Agent 通道
+  fi
   [[ $SKIP_REPOS -eq 1 ]]   || init_repos
   [[ $SKIP_COMPOSE -eq 1 ]] || init_compose
+  check_post || true
   log "完成。布局见 docs/architecture/13-repo-template.md，权限模型见 16-linux-permissions.md"
 fi

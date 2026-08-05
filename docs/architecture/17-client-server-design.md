@@ -1,108 +1,55 @@
-# 17 客户端与服务端设计（多角色）
+# 17 客户端与服务端设计（单用户）
 
 ## 17.1 服务端设计
 
-单一后端 `control-api`（Java Spring Boot），**按能力域提供统一 REST API，不按客户端拆接口**。所有客户端（设计者/开发者/测试者/管理者/客户门户）访问同一套 API，由 RBAC 做操作与数据过滤。
+单一后端 `control-api`（Java Spring Boot），**按能力域提供统一 REST API**。唯一用户经认证后访问全部端点；操作留痕写 `work_log`。
 
 ```
-                 ┌────────────────────────────────────────────────┐
-                 │  control-api（能力域 API + RBAC + 审计）        │
-                 │  /api/auth   /api/design  /api/tasks           │
-                 │  /api/repos  /api/worktrees  /api/approvals    │
-                 │  /api/tests  /api/bugs  /api/audit  /api/rag   │
-                 └────────────────────────────────────────────────┘
+                  ┌────────────────────────────────────────────┐
+                  │  control-api（能力域 API + 审计）            │
+                  │  /api/auth   /api/design  /api/tasks       │
+                  │  /api/repos  /api/worktrees                │
+                  │  /api/tests  /api/bugs  /api/audit  /api/rag │
+                  └────────────────────────────────────────────┘
 ```
 
-### API 能力域（按领域，非按角色）
+### API 能力域
 
-| 能力域 | 端点前缀 | 主要消费者 |
-|-------|---------|-----------|
-| 认证授权 | `/api/auth` | 所有人 |
-| 设计控制 | `/api/design` | 设计者、架构师 |
-| 任务 | `/api/tasks` | 开发者、设计者 |
-| 仓库/分支/Worktree | `/api/repos` `/api/worktrees` | 开发者 |
-| 审核闸门 | `/api/approvals` | 所有人（按角色审批） |
-| 测试 | `/api/tests` | 测试者、开发者 |
-| 缺陷 | `/api/bugs` | 测试者、开发者 |
-| 审计 | `/api/audit` | 管理者 |
-| RAG 检索 | `/api/rag` | 全部（只读） |
+| 能力域 | 端点前缀 | 用途 |
+|-------|---------|------|
+| 认证 | `/api/auth` | 单用户登录（本地 token / 内网 SSO 可选） |
+| 设计控制 | `/api/design` | 概要/外部设计、需求、影响分析 |
+| 任务 | `/api/tasks` | 任务 CRUD、状态流转、干预（暂停/回退；合并在 GitLab 人工执行） |
+| 仓库/分支/Worktree | `/api/repos` `/api/worktrees` | 注册表查询、分支/Worktree 状态 |
+| 测试 | `/api/tests` | 测试报告 |
+| 缺陷 | `/api/bugs` | Bug 提交/跟踪 |
+| 审计 | `/api/audit` | work_log 检索 |
+| RAG 检索 | `/api/rag` | 语义检索（只读） |
 
-### RBAC 模型
+### 认证
 
-- **认证**：内网 SSO/OIDC + JWT
-- **授权**：角色 → 权限点 →（端点 + 字段 + 数据行范围）
-- **数据范围**：按项目/仓库隔离（如 A 项目组成员仅见其仓库数据）
-- **审计**：每个请求关联 `work_log`（operator、action、时间），任何直接调用都留痕
+- 单用户：本地 token 或内网 SSO/OIDC + JWT（可选）
+- 每个请求关联 `work_log`（operator、action、时间），任何直接调用都留痕
 
-## 17.2 客户端：三种角色倾向
+## 17.2 客户端：单工作台
 
-客户端为单一 React 应用（`control-web`，PrimeReact + Vite），按角色提供三种**工作台倾向（默认视图 + 菜单集）**，而非三套独立应用。
-
-| 工作台 | 角色 | 关注功能 | 默认页 |
-|-------|------|---------|--------|
-| **设计者工作台** | 设计者/架构师 | 概要/外部设计、需求、影响分析、RAG 检索、设计审核 | 设计文档库 |
-| **开发者工作台** | 开发者 | 任务、分支/Worktree、编码（pi.dev）、MR 与 Diff 评审、测试触发 | 任务看板 |
-| **测试者工作台** | 测试者 | 测试用例、测试执行、测试报告、Bug 提交/验证、回归结果 | 测试看板 |
-
-## 17.3 是否公用
-
-**公用**：一套代码、一套构建、一次部署。
-
-| 复用点 | 方式 |
-|-------|------|
-| 代码库 | 单一 `control-web`，三种工作台为路由分组 + 布局配置，非独立工程 |
-| 共享组件 | DiffViewer、AuditTable、WorktreePanel、RagSearch、ApprovalQueue、DataTable |
-| 权限 | 路由守卫 + 菜单按角色渲染；未授权功能不显示 |
-| 多角色 | 一人可兼多角色，工作台可切换/叠加（如开发者兼任测试者） |
-| 构建部署 | 一次构建，一份静态资源，Nginx 托管 |
+客户端为单一 React 应用（`control-web`，PrimeReact + Vite），默认页为**多任务看板**，聚合全部功能：任务操作、Diff 预览、GitLab MR 跳转合并、日志检索、RAG 检索、工作报告（模块见 [06](06-web.md)）。
 
 ```
 control-web/src/
-├── router/            # 路由 + 角色守卫
-├── workspaces/        # 三种工作台布局（designer/developer/tester）
-├── pages/             # 各能力域页面（按工作台组织）
-├── components/        # 共享组件（Diff、审计、RAG 检索…）
+├── router/            # 路由
+├── pages/             # 各能力域页面
+├── components/        # 共享组件（DiffViewer、AuditTable、WorktreePanel、RagSearch…）
 └── services/          # 统一调用 control-api
 ```
 
-## 17.4 管理者和客户
-
-**都不直连服务端**，否则绕过认证/RBAC/审计。访问路径统一为：客户端 → `control-api`（内网）。
-
-| 人群 | 入口 | 说明 |
-|------|------|------|
-| 管理者（管理员/项目管理者） | control-web **管理员视图**（admin workspace） | 看板、审计检索、排班、仓库注册、权限管理；能力域覆盖全局数据范围 |
-| 客户（外部/管理层只读） | **独立受限客户门户**（可复用 control-web 构建的只读包） | 仅进度、里程碑、测试/发布报告；数据脱敏，无写操作，经只读代理访问，不直连内网 API |
-
-### 客户门户约束
-
-- 只读：不提供写端点，后端对门户会话强制 `READ_ONLY`
-- 脱敏：过滤敏感字段（代码内容、密钥、内部人员）
-- 隔离：若客户在公网，则门户独立部署于 DMZ，**经只读代理访问内网**，不直接暴露 `control-api`
-
-### 只读代理（DMZ → 内网）
-
-门户与内网 `control-api` 之间部署**只读代理**（`portal-proxy`，轻量网关服务）：
-
-```
-客户浏览器 → 门户静态包（DMZ Nginx）→ portal-proxy（DMZ）→ 内网 control-api（白名单端点）
-```
-
-| 约束 | 规则 |
-|-----|------|
-| 端点白名单 | 仅放行只读 GET：进度/里程碑/测试与发布报告（如 `/api/portal/**` 专用只读前缀），不写转发其他端点 |
-| 方法过滤 | 拒绝一切 POST/PUT/DELETE，代理层直接 405 |
-| 数据脱敏 | 代理层裁剪响应字段（代码内容、密钥、内部人员信息），内网 API 返回的敏感字段不出 DMZ |
-| 会话 | 门户会话强制 `READ_ONLY` 角色（17.1 RBAC），代理不持有可写凭据 |
-| 网络 | DMZ → 内网仅开放代理到 control-api 的单一端口，反向不通 |
-
-## 17.5 部署边界：客户端 vs 服务端
+## 17.3 部署边界：客户端 vs 服务端
 
 | 组件 | 部署位置 | 说明 |
 |-----|---------|------|
-| Web 管理端（admin/三工作台/客户门户 UI） | **客户端**（`control-web` 静态资源 + Nginx） | 纯展示与交互，无逻辑、无数据访问 |
-| Web 管理端**逻辑与数据** | **服务端** `control-api` | 管理接口（audit/repos/schedule）、RBAC、审计全在服务端 |
+| Web 管理端 UI | **客户端**（`control-web` 静态资源 + Nginx） | 纯展示与交互，无逻辑、无数据访问 |
+| Web 管理端**逻辑与数据** | **服务端** `control-api` | 任务、仓库、审计全在服务端 |
 | **RAG 引擎** | **服务端** `control-api/service/rag` + Milvus | 索引、切分、向量化、检索全部服务端；客户端仅调 `/api/rag` 只读检索 |
 | 数据层（MySQL/Milvus） | **服务端** | 客户端不直连数据库 |
 
-> 原则：**客户端 = 纯展示**（零业务逻辑、零数据直连），一切能力（含 RAG、管理）的服务端实现都部署在 `control-api` 所在服务端；客户端只经内网 API 交互。
+> 原则：**客户端 = 纯展示**（零业务逻辑、零数据直连），一切能力（含 RAG）的服务端实现都部署在 `control-api` 所在服务端；客户端只经内网 API 交互。

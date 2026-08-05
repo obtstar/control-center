@@ -29,10 +29,13 @@
 │   │   ├── requirements/          # 需求文档
 │   │   │   └── REQ-0000-template.md
 │   │   └── architecture/          # 本架构文档集
-│   └── orchestration/             # 任务编排配置（版本化）
-│       ├── prompts/               # Prompt 版本化
-│       ├── skills/                # Skill 扩展定义
-│       └── workflows/             # 瀑布状态机 / 阶段闸门 / 排班策略配置
+│   ├── orchestration/             # 任务编排配置（版本化）
+│   │   ├── prompts/               # Prompt 版本化
+│   │   ├── skills/                # Skill 定义（SKILL.md 格式，openskills 管理，第三方技能 vendor 入库）
+│   │   └── workflows/             # 流水线状态机配置
+│   └── registry/                  # 注册表（版本化，Git 即权威源）
+│       ├── repos.yaml             # 仓库注册表（14.2）
+│       └── executors.yaml         # 执行节点登记（10）
 ├── repos/                         # 代码仓库工作副本（db/backend/frontend 均在此）
 │   ├── control-api/               # 平台后端（Java Spring Boot）
 │   ├── control-web/               # 平台前端（React + PrimeReact + Vite）
@@ -54,11 +57,12 @@
 
 | 目录 | 职责 | 变更入口 |
 |-----|------|---------|
-| `~/control-center/docs/design/overview/` | 概要设计（集中），RAG 索引源 | MR + 架构师审核 |
-| `~/control-center/docs/design/external/` | 外部设计（集中），RAG 索引源 | MR + 架构师审核 |
-| `~/control-center/docs/requirements/` | 需求文档，RAG 索引源 | MR + PM 审核 |
-| `~/control-center/orchestration/` | 状态机/闸门/排班/Prompt 配置 | MR + 双人审批 |
-| `~/repos/` | 全部代码仓库（平台 + 业务） | 仓库内 MR + 对应评审 |
+| `~/control-center/docs/design/overview/` | 概要设计（集中），RAG 索引源 | MR（单人自审合并） |
+| `~/control-center/docs/design/external/` | 外部设计（集中），RAG 索引源 | MR（单人自审合并） |
+| `~/control-center/docs/requirements/` | 需求文档，RAG 索引源 | MR |
+| `~/control-center/orchestration/` | 状态机/Prompt 配置 | MR + 用户确认 |
+| `~/control-center/registry/` | 仓库/执行节点注册表 | MR + 用户确认 |
+| `~/repos/` | 全部代码仓库（平台 + 业务） | 仓库内 MR |
 | `~/wt/` | Worktree 临时目录，生命周期由控制中心管理 | 自动创建/回收 |
 | `~/data/` `~/logs/` | 服务数据与日志 | 运维管理，不纳入 Git |
 
@@ -70,8 +74,8 @@
 
 | 类型 | 示例 | 说明 |
 |-----|------|------|
-| 平台后端 | `control-api` | Java Spring Boot：任务、状态机、RAG、排班 |
-| 平台前端 | `control-web` | React + PrimeReact + Vite：看板/审核/排班/审计 |
+| 平台后端 | `control-api` | Java Spring Boot：任务、状态机、RAG |
+| 平台前端 | `control-web` | React + PrimeReact + Vite：看板/干预/合并/日志 |
 | 平台数据库 | `control-db` | MySQL DDL/DML（平台 schema：task、work_log…） |
 | 业务代码 | `billing-core`、`billing-web` | 业务后端/前端，含自身 DDL/DML |
 
@@ -102,7 +106,7 @@ control-api/  (或 billing-core/)
 
 ### 分支与 Worktree 约定
 
-- 常驻分支：`main`（生产）、`dev`（集成）、`release/*`（发布候选）
+- 常驻分支：`main`（生产）、`dev`（阶段集成）、`release/{yyyymm}`（月度升级，从 main 切出）
 - 任务分支：`feature/{task-id}-{name}`、`bugfix/{task-id}-{name}`
 - 每任务一个独立 Worktree：`~/wt/{repo}/{task-id}-{type}-{name}`，checkout 到任务分支
 - 禁止在 `main`/`dev` 直接编码，全部经 MR
@@ -126,7 +130,7 @@ control-api/  (或 billing-core/)
 <type>(<scope>): <subject>
 
 feat(design): 新增外部设计 API 契约
-fix(scheduler): 修复排班权限判断
+fix(scheduler): 修复任务调度限流判断
 docs(db): 新增 V002 任务表索引
 refactor(rag): 拆分增量索引任务
 ```
@@ -187,9 +191,9 @@ repos:
 
 ## 13.4 模板创建流程
 
-> `control-center` 为独立仓库，仅初始化一次，不纳入 `repository` 注册表；代码仓库（平台实现 + 业务）创建后注册入 `repository` 表。
+> `control-center` 为独立仓库，仅初始化一次，不纳入 `registry/repos.yaml`；代码仓库（平台实现 + 业务）创建后登记入 `registry/repos.yaml`。
 
-1. 控制中心仓库由模板仓库 `template-control-center` 初始化（`git clone --template` 或模板工具），为独立仓库，内置 `docs/design/overview|external`、`docs/requirements`、`orchestration/` 模板
-2. 平台代码仓库（`control-api` / `control-web` / `control-db`）与业务代码仓库（`{system}-{name}`）由 `template-code-repo` 初始化，内置 `docs/design/internal/` 内部设计模板，创建后注册入 `repository` 表
+1. 控制中心仓库由模板仓库 `template-control-center` 初始化（`git clone --template` 或模板工具），为独立仓库，内置 `docs/design/overview|external`、`docs/requirements`、`orchestration/`、`registry/` 模板
+2. 平台代码仓库（`control-api` / `control-web` / `control-db`）与业务代码仓库（`{system}-{name}`）由 `template-code-repo` 初始化，内置 `docs/design/internal/` 内部设计模板，创建后在 `registry/repos.yaml` 中新增条目并合并（14.8）
 3. 新建任务 → 控制中心调用仓库 OpenAPI 按模板创建分支 + Worktree
 4. 分支策略、MR 模板、CI 配置随仓库初始化写入，禁止在任务中修改
