@@ -110,7 +110,7 @@ PC-51 WSL ─┘ ── git fetch 任务分支 → 本地执行 ci/ 脚本 → �
 # control-center/registry/executors.yaml
 executors:
   - executor_id: pc-01
-    tags: [java17, node20, playwright]   # 能力标签
+    tags: [java17, node20, pnpm, playwright]   # 能力标签
     slots:
       day: 1                             # 工作日白天轻量槽位（≤4GB，低优先级）
       night: 2                           # 夜间 02:00-06:00 全量槽位（见下表）

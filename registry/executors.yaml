@@ -2,7 +2,7 @@
 # executor_id 须与节点 executor/.env 中 EXECUTOR_ID 一致
 executors:
   - executor_id: pc-01
-    tags: [java17, node20, playwright]   # 能力标签（按本机工具链探测）
+    tags: [java17, node20, pnpm, playwright]   # 能力标签（按本机工具链探测）
     slots:
       day: 1                             # 工作日白天轻量槽位（≤4GB，低优先级）
       night: 2                           # 夜间 02:00-06:00 全量槽位

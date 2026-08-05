@@ -103,6 +103,8 @@ control-api/  (或 billing-core/)
 ```
 
 > 内部设计与代码同 MR 评审；本仓库 DDL/DML 随代码同 MR 提交。概要/外部设计仍在控制中心集中管理。
+>
+> Node 仓库（如 control-web）统一使用 **pnpm**：多 worktree 并行任务共享全局 store（硬链接），避免每个 worktree 重复安装 `node_modules`；executor 能力标签含 `pnpm` 方可领取 Node 任务。
 
 ### 分支与 Worktree 约定
 

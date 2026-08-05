@@ -481,6 +481,7 @@ init_executor() {
   local tags=()
   command -v java  &>/dev/null && tags+=("java$(java -version 2>&1 | grep -oP '(?<=version ")[0-9]+' | head -1)")
   command -v node  &>/dev/null && tags+=("node$(node -v | tr -d 'v' | cut -d. -f1)")
+  command -v pnpm  &>/dev/null && tags+=("pnpm")
   command -v npx   &>/dev/null && npx --no-install playwright --version &>/dev/null && tags+=("playwright")
   local tag_csv
   tag_csv=$(IFS=,; echo "${tags[*]:-}")
