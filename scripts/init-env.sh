@@ -26,7 +26,11 @@ usage() {
   -h, --help        显示帮助
 环境变量:
   NPM_REGISTRY      npm 内网镜像（如 http://npm.internal:4873），安装 pi/openskills 时使用
+  PIP_INDEX_URL     pip 镜像（如 http://pypi.internal/simple），
+                    未设置时默认清华镜像 https://pypi.tuna.tsinghua.edu.cn/simple
   LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
+  GIT_REMOTE_BASE   仓库远程地址前缀（如 git@github.com:obtstar），
+                    设置后骨架仓库自动添加 origin 并推送 main/dev
 EOF
 }
 
@@ -35,6 +39,8 @@ CONTROL_API=""
 SKIP_TOOLING=0
 CHECK_ONLY=0
 LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
+# pip 镜像：优先内网镜像（PIP_INDEX_URL），未设置时默认清华镜像
+export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --home) BASE_HOME="$2"; shift 2 ;;
@@ -52,6 +58,14 @@ done
 
 log() { printf '\033[1;34m[init]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
+
+# 已存在文件的覆盖确认：交互时询问，非交互默认保留（返回 0=覆盖 1=保留）
+confirm_overwrite() {
+  [[ -t 0 ]] || return 1
+  local ans
+  read -rp "$1 已存在，是否覆盖？[y/N] " ans
+  [[ "$ans" =~ ^[yY](es)?$ ]]
+}
 
 # ── 0. 环境校验（初始化前预检 / 初始化后后检）──────────────────
 CHECK_FAIL=0
@@ -163,7 +177,11 @@ init_users() {
   # 单人模型：owner = 当前实际用户；Agent 统一一个 agent 账号（本机 + 执行节点通用）
   # 代码/Worktree 全部在 owner home 下；agent 仅保留极简配置目录 $BASE_HOME/.agent
   local owner ogroup
-  owner="${SUDO_USER:-$(logname 2>/dev/null || echo dev)}"
+  owner="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+  if [[ -z "$owner" ]]; then
+    echo "无法确定实际用户（SUDO_USER/logname 均不可用），请以 sudo 方式运行" >&2
+    exit 1
+  fi
   ogroup="$(id -gn "$owner")"
 
   if ! id agent &>/dev/null; then
@@ -190,6 +208,9 @@ init_users() {
 # ── 3. 环境变量配置 ───────────────────────────────────────────
 init_env_config() {
   local env_file="$BASE_HOME/control.env"
+  if [[ -f "$env_file" ]] && ! confirm_overwrite "$env_file"; then
+    log "保留已有配置: $env_file"
+  else
   log "写入环境变量配置: $env_file"
   cat > "$env_file" <<EOF
 # control.env — Agent 平台环境变量（13/15 章），由 init-env.sh 生成
@@ -204,6 +225,12 @@ export LITELLM_ENDPOINT="$LITELLM_ENDPOINT"
 # export PIP_INDEX_URL=      # pip 内网镜像，如 http://pypi.internal/simple
 EOF
   chmod 600 "$env_file"
+  # root(sudo) 运行时归属实际用户，否则 600 权限下 owner 无法 source
+  if [[ $EUID -eq 0 ]]; then
+    local owner="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+    [[ -n "$owner" ]] && chown "$owner:$(id -gn "$owner")" "$env_file"
+  fi
+  fi
 
   # bashrc 幂等挂载
   local bashrc="$BASE_HOME/.bashrc"
@@ -235,7 +262,9 @@ init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
         && log "已安装 control-center/requirements.txt"
     fi
   fi
-  [[ -n "$user" ]] && id "$user" &>/dev/null && chown -R "$user:$user" "$home/.venv"
+  if [[ -n "$user" ]] && id "$user" &>/dev/null; then
+    chown -R "$user:$user" "$home/.venv"
+  fi
 }
 
 # ── 5. pi / openskills 安装与配置 ─────────────────────────────
@@ -308,11 +337,26 @@ EOF
 概要/外部设计见控制中心仓库 \`control-center/docs/design/\`；
 内部设计位于本仓库 \`docs/design/internal/\`，与代码同分支、同 MR 提交。
 EOF
-  git -C "$repo" init -b main >/dev/null
+  # git >= 2.28 支持 init -b；旧版本回退 symbolic-ref
+  if ! git -C "$repo" init -b main >/dev/null 2>&1; then
+    git -C "$repo" init >/dev/null
+    git -C "$repo" symbolic-ref HEAD refs/heads/main
+  fi
   git -C "$repo" -c user.name=init-env -c user.email=init-env@local \
     commit --allow-empty -m "chore: init repository skeleton" >/dev/null
   git -C "$repo" checkout -b dev >/dev/null
-  log "初始化仓库: $1（main + dev）"
+  # 可选：配置远程并推送（GIT_REMOTE_BASE 如 git@github.com:obtstar 或 git@git.internal:group）
+  if [[ -n "${GIT_REMOTE_BASE:-}" ]]; then
+    local remote="$GIT_REMOTE_BASE/$1.git"
+    git -C "$repo" remote add origin "$remote" 2>/dev/null || true
+    if git -C "$repo" push -u origin main dev >/dev/null 2>&1; then
+      log "初始化仓库: $1（main + dev，已推送 $remote）"
+    else
+      warn "仓库 $1 已初始化，但推送失败（远程不存在或无权限？）：$remote"
+    fi
+  else
+    log "初始化仓库: $1（main + dev，未配置远程；设 GIT_REMOTE_BASE 可自动推送）"
+  fi
 }
 
 init_repos() {
@@ -320,6 +364,11 @@ init_repos() {
   for r in control-api control-web control-db; do
     init_repo_skeleton "$r"
   done
+  # root(sudo) 运行时把新建仓库归属实际用户（16.3 权限模型）
+  if [[ $EUID -eq 0 ]]; then
+    local owner="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+    [[ -n "$owner" ]] && chown -R "$owner:$(id -gn "$owner")" "$BASE_HOME/repos"
+  fi
 }
 
 # ── 7. docker-compose 测试环境（10）───────────────────────────
@@ -333,6 +382,11 @@ DB_PASSWORD=change-me
 LITELLM_API_KEY=change-me
 EOF
   chmod 600 "$deploy/.env"
+
+  if [[ -f "$deploy/docker-compose.yml" ]] && ! confirm_overwrite "$deploy/docker-compose.yml"; then
+    log "保留已有 compose: $deploy/docker-compose.yml"
+    return 0
+  fi
 
   cat > "$deploy/docker-compose.yml" <<EOF
 # 模拟综合测试环境（非生产形态，见 docs/architecture/10-deployment.md）
@@ -381,7 +435,9 @@ services:
       - $BASE_HOME/data/milvus:/var/lib/milvus
 EOF
 
-  if command -v docker &>/dev/null && docker compose version &>/dev/null; then
+  if grep -q 'change-me' "$deploy/.env"; then
+    warn ".env 仍为占位符（change-me），跳过自动启动；填写密钥后执行: (cd $deploy && docker compose up -d)"
+  elif command -v docker &>/dev/null && docker compose version &>/dev/null; then
     (cd "$deploy" && docker compose up -d)
     log "docker-compose 测试环境已启动"
   else
@@ -402,9 +458,9 @@ init_executor() {
   [[ "$CONTROL_API" =~ ^https?:// ]] || CONTROL_API="http://$CONTROL_API"
   CONTROL_API="${CONTROL_API%/}"
 
-  # 连通性预检（不阻断，仅提示）
+  # 连通性预检（不阻断，仅提示）；/actuator/health 为免认证健康端点
   if command -v curl &>/dev/null; then
-    curl -sf --max-time 5 -o /dev/null "$CONTROL_API/api/rag/search" \
+    curl -sf --max-time 5 -o /dev/null "$CONTROL_API/actuator/health" \
       && log "服务端可达: $CONTROL_API" \
       || warn "服务端暂不可达（$CONTROL_API），继续初始化，executor 启动后自动重试"
   fi
@@ -449,7 +505,9 @@ EOF
   1. 在控制中心仓库 registry/executors.yaml 新增条目并合并：
        - executor_id: $executor_id
          tags: [${tag_csv//,/, }]
-         slots: 1
+         slots:
+           day: 1      # 工作日白天轻量槽位
+           night: 2    # 夜间 02:00-06:00 全量槽位
          token_ref: env:EXECUTOR_TOKEN_$(echo "$executor_id" | tr 'a-z-' 'A-Z_')
   2. 将服务端签发的 token 写入本文件 EXECUTOR_TOKEN
   3. 启动 executor 服务后开始心跳/领取任务
@@ -480,7 +538,7 @@ else
   init_dirs
   [[ $SKIP_USERS -eq 1 ]]   || init_users
   init_env_config
-  OWNER="${SUDO_USER:-$USER}"
+  OWNER="${SUDO_USER:-$(logname 2>/dev/null || id -un)}"
   init_venv "$BASE_HOME" "$OWNER"
   if [[ $SKIP_TOOLING -eq 0 ]]; then
     install_agent_tooling "$BASE_HOME" "$OWNER"          # 人工通道（VSCode/CLI）

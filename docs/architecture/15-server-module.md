@@ -78,6 +78,7 @@ control:
 
 | 端点 | 说明 |
 |-----|------|
+| `GET /actuator/health` | 健康检查（免认证），供 executor 初始化预检与负载探活 |
 | `GET/POST /api/tasks` | 任务查询/创建，含状态流转 |
 | `POST /api/tasks/{id}/action` | 任务干预：暂停 / 回退 / 批注修正（合并在 GitLab 人工执行，平台无合并接口） |
 | `GET /api/repos` | 注册表仓库列表与状态查询（注册走 `registry/repos.yaml` MR） |

@@ -33,7 +33,7 @@
 repos:
   - repo_key: billing-core
     name: 计费核心
-    git_url: git://git.internal/billing/billing-core.git
+    git_url: ssh://git@git.internal/billing/billing-core.git
     api_type: GITLAB                # GITLAB / GITHUB / GITEA
     api_endpoint: http://git.internal/api/v4
     token_ref: env:GIT_TOKEN        # 密钥引用，不存明文
@@ -44,7 +44,7 @@ repos:
     disabled: false                 # 逻辑停用，保留历史
   - repo_key: billing-reports
     name: 计费报表
-    git_url: git://git.internal/billing/billing-reports.git
+    git_url: ssh://git@git.internal/billing/billing-reports.git
     api_type: GITLAB
     api_endpoint: http://git.internal/api/v4
     token_ref: env:GIT_TOKEN

@@ -1,0 +1,9 @@
+# 执行节点登记（10 章 executor 代理）：Git 版本化，MR 生效
+# executor_id 须与节点 executor/.env 中 EXECUTOR_ID 一致
+executors:
+  - executor_id: pc-01
+    tags: [java17, node20, playwright]   # 能力标签（按本机工具链探测）
+    slots:
+      day: 1                             # 工作日白天轻量槽位（≤4GB，低优先级）
+      night: 2                           # 夜间 02:00-06:00 全量槽位
+    token_ref: env:EXECUTOR_TOKEN_PC01   # 认证 token 引用，不存明文

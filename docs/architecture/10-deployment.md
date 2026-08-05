@@ -111,7 +111,9 @@ PC-51 WSL ─┘ ── git fetch 任务分支 → 本地执行 ci/ 脚本 → �
 executors:
   - executor_id: pc-01
     tags: [java17, node20, playwright]   # 能力标签
-    slots: 2                             # 并发槽位（白天 1 / 夜间 2，见下表）
+    slots:
+      day: 1                             # 工作日白天轻量槽位（≤4GB，低优先级）
+      night: 2                           # 夜间 02:00-06:00 全量槽位（见下表）
     token_ref: env:EXECUTOR_TOKEN_PC01   # 认证 token 引用，不存明文
 ```
 
@@ -124,7 +126,7 @@ executors:
 | 时段 | 每台 PC 策略 | 说明 |
 |-----|-------------|------|
 | 工作日白天 | 限 1 个轻量槽位（≤4GB，低优先级调度） | 不影响 PC 使用者 |
-| 夜间 02:00-06:00 | 放开 2 个全量槽位 | Playwright 回归等重任务排此时段（由调度器按 executors.yaml `slots` 与时段策略下发） |
+| 夜间 02:00-06:00 | 放开 2 个全量槽位 | Playwright 回归等重任务排此时段（由调度器按 executors.yaml `slots.day` / `slots.night` 下发） |
 
 > 参考：51 台 16GB PC，白天可得 ~50 个轻量槽位、夜间 ~100 个全量槽位，远超并发配额 N；全局 N 仍按 14.6 由控制中心统一限流。
 

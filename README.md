@@ -8,7 +8,10 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | 目录 | 内容 |
 |-----|------|
 | `docs/architecture/` | 架构文档集（00-17，索引见其中 README） |
+| `orchestration/` | 任务编排配置：`prompts/`、`skills/`、`workflows/` |
+| `registry/` | 注册表：`repos.yaml`（仓库注册）、`executors.yaml`（执行节点登记） |
 | `scripts/` | 环境初始化脚本 `init-env.sh` |
+| `control-center.code-workspace` | VS Code 多根目录工作区（control-center + 平台仓库 + Worktree 根），WSL 中用 `code control-center.code-workspace` 打开 |
 
 ## 环境初始化脚本（scripts/init-env.sh）
 
@@ -34,22 +37,23 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | 变量 | 说明 |
 |-----|------|
 | `NPM_REGISTRY` | npm 内网镜像（安装 pi/openskills 用） |
-| `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用） |
+| `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
+| `GIT_REMOTE_BASE` | 仓库远程地址前缀（如 `git@github.com:obtstar`），设置后骨架仓库自动添加 origin 并推送 main/dev |
 
 ### 远程校验命令
 
 不初始化、只巡检目标机器环境（预检 + 后检）：
 
 ```bash
-# 方式一：ssh 远程执行（脚本已在目标机）
-ssh user@pc-01 'bash ~/scripts/init-env.sh --check'
+# 方式一：ssh 远程执行（脚本已在目标机，随 control-center 仓库克隆）
+ssh user@pc-01 'bash ~/control-center/scripts/init-env.sh --check'
 
 # 方式二：从 Git 仓库拉取最新脚本直接执行（不落盘）
-curl -fsSL https://raw.githubusercontent.com/lbb4511/dr-ai/main/scripts/init-env.sh | bash -s -- --check
+curl -fsSL https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | bash -s -- --check
 
 # 方式三：远程拉取并执行
-ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/lbb4511/dr-ai/main/scripts/init-env.sh | bash -s -- --check'
+ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | bash -s -- --check'
 ```
 
 输出三级：**PASS** 正常 / **WARN** 可择情处理（如 token 占位符、可选工具缺失）/ **FAIL** 必须修复。

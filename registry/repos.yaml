@@ -1,0 +1,24 @@
+# 仓库注册表（14.2）：Git 即权威源，变更走 MR，合并后 control-api 热加载
+# 字段说明见 docs/architecture/14-multi-repo.md
+repos:
+  - repo_key: billing-core
+    name: 计费核心
+    git_url: ssh://git@git.internal/billing/billing-core.git
+    api_type: GITLAB                # GITLAB / GITHUB / GITEA
+    api_endpoint: http://git.internal/api/v4
+    token_ref: env:GIT_TOKEN        # 密钥引用，不存明文
+    openapi_ref: openapi/openapi.yaml  # OpenAPI 契约路径，供 RAG 采集
+    default_branch: dev
+    max_worktrees: 3                # 仓库级并发 Worktree 配额
+    executor_allowed: true          # false = 机密仓库，仅编排节点执行，不分发 executor
+    disabled: false                 # 逻辑停用，保留历史
+  - repo_key: billing-reports
+    name: 计费报表
+    git_url: ssh://git@git.internal/billing/billing-reports.git
+    api_type: GITLAB
+    api_endpoint: http://git.internal/api/v4
+    token_ref: env:GIT_TOKEN
+    default_branch: dev
+    max_worktrees: 2
+    executor_allowed: true
+    disabled: false

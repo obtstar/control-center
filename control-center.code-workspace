@@ -1,0 +1,35 @@
+{
+  "folders": [
+    {
+      "name": "control-center（文档/编排/注册表）",
+      "path": "."
+    },
+    {
+      "name": "control-api",
+      "path": "../repos/control-api"
+    },
+    {
+      "name": "control-web",
+      "path": "../repos/control-web"
+    },
+    {
+      "name": "control-db",
+      "path": "../repos/control-db"
+    },
+    {
+      "name": "wt（任务 Worktree）",
+      "path": "../wt"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/target": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/target": true,
+      "**/dist": true
+    }
+  }
+}
