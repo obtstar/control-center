@@ -14,7 +14,7 @@ CREATE TABLE `task` (
   `type`          VARCHAR(20)  NOT NULL COMMENT 'FEATURE / BUGFIX / DOC',
   `title`         VARCHAR(200) NOT NULL,
   `status`        VARCHAR(32)  NOT NULL COMMENT '需求分析/系统设计/编码实现/测试验证/交付/已回退',
-  `repo`          VARCHAR(128) DEFAULT NULL COMMENT '目标代码仓库',
+  `repo_key`      VARCHAR(64)  DEFAULT NULL COMMENT '目标代码仓库（repository.repo_key）',
   `branch`        VARCHAR(128) DEFAULT NULL COMMENT 'feature/task-001',
   `worktree_path` VARCHAR(255) DEFAULT NULL COMMENT '~/wt/repo-a/TASK-001-xxx',
   `priority`      TINYINT      DEFAULT 3,
@@ -25,7 +25,7 @@ CREATE TABLE `task` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_no` (`task_no`),
   KEY `idx_status` (`status`),
-  KEY `idx_repo` (`repo`)
+  KEY `idx_repo` (`repo_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='任务表';
 ```
 
@@ -38,12 +38,12 @@ CREATE TABLE `work_log` (
   `operator`          VARCHAR(64) NOT NULL COMMENT 'agent-001 / user-zhangsan',
   `shift_id`          VARCHAR(64) DEFAULT NULL,
   `action`            VARCHAR(64) NOT NULL COMMENT 'code_generate / review_submit ...',
-  `repo`              VARCHAR(128) DEFAULT NULL,
+  `repo_key`          VARCHAR(64)  DEFAULT NULL COMMENT 'repository.repo_key',
   `branch`            VARCHAR(128) DEFAULT NULL,
   `worktree_path`     VARCHAR(255) DEFAULT NULL,
   `git_commit`        CHAR(40)     DEFAULT NULL,
   `model_used`        VARCHAR(64)  DEFAULT NULL COMMENT '经 LiteLLM 路由',
-  `approval_id`       VARCHAR(64)  DEFAULT NULL,
+  `approval_no`       VARCHAR(64)  DEFAULT NULL COMMENT '关联 approval.approval_no',
   `before_state_hash` CHAR(64)     DEFAULT NULL,
   `after_state_hash`  CHAR(64)     DEFAULT NULL,
   PRIMARY KEY (`id`),

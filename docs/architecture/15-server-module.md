@@ -49,6 +49,7 @@ control-api/                          # 服务器模块（代码仓库）
 | Worktree | `service/worktree` | Worktree 创建/回收/归档，配额控制 |
 | RAG | `service/rag` | 文档/代码增量索引、检索、Milvus 对接 |
 | Agent | `agent` | pi.dev 指令下发、执行结果回传 |
+| 执行节点 | `service/executor` | executor 注册/心跳/任务派发/结果回收（无 CI 产品时替代 CI Runner，见 [10 executor 代理](10-deployment.md#执行节点实现executor-代理无-ci-产品复用办公-pc)） |
 | 审计 | `service/audit` | 工作记录写入（work_log）、状态哈希校验 |
 | 工作报告 | `service/report` | 定时聚合 work_log → LLM 生成摘要 → work_report（日报/周报/任务报告） |
 | 自我升级 | `service/selfupgrade` | 执行日志分析、Prompt/Skill 热更新 |
@@ -84,6 +85,10 @@ control:
 | `GET/POST /api/reports` | 工作报告查询/提交（work_report，service/report 定时生成） |
 | `GET /api/rag/search` | RAG 语义检索 |
 | `POST /api/agents/{agentId}/run` | 下发 Agent（pi.dev）指令，返回结果 |
+| `POST /api/agents/register` | executor 注册（能力标签 + 槽位数），返回 executorId；注册后为 PENDING，管理员审批通过后激活（准入流程同 14.8 仓库接入） |
+| `POST /api/agents/{executorId}/heartbeat` | executor 心跳（在线状态、空闲槽位），离线自动剔除 |
+| `POST /api/agents/{executorId}/poll` | executor 长轮询领取执行任务（按标签/槽位/排班匹配） |
+| `POST /api/agents/{executorId}/report` | executor 回传执行结果（日志、测试报告、状态哈希），写 `work_log` 驱动状态机 |
 | `POST /api/repos/{key}/webhook` | 代码仓库 Webhook 入口 |
 
 ## 15.6 外部集成
@@ -95,15 +100,17 @@ control:
 | LiteLLM | OpenAI 兼容 REST | 统一路由外接 Anthropic / GitHub Copilot，不跑本地模型 |
 | Git | 本地 git 命令（JGit/CLI） | Worktree、分支、提交操作 |
 | 代码仓库 | 各仓库 OpenAPI（GITLAB 等） | 分支/MR/Webhook/状态查询 |
+| CI Runner | 仓库 CI（Webhook 触发 + 结果回传） | 构建/测试在执行节点运行，编排节点不跑重负载（见 [10 节点拆分](10-deployment.md#节点拆分编排节点-vs-执行节点)） |
 | CLI Agent | pi.dev（WSL 终端，兼容 Claude Code / Copilot） | 编码、测试、文件操作执行 |
 
 ## 15.7 与编排配置的关系
 
 - 瀑布状态机、排班策略、Prompt、Skill 定义存于控制中心仓库 `orchestration/`，非服务器代码
-- 服务器启动时加载 `~/control-center/orchestration/`，支持热更新（自我升级模块）
+- 服务器启动时加载 `~/control-center/orchestration/`，支持热加载（免重启）；**生效顺序：MR + 双人审批 → 灰度发布 → 热加载**，热更新不绕过审批与灰度（07.3）
 - 配置变更经控制中心 MR + 双人审批后发布，服务器拉取生效
 
 ## 15.8 与 Linux 权限管理的关系
 
 - Agent 指令由控制中心以**对应排班时段的 Linux 系统用户**（`agent-readonly` / `agent-auto` / `agent-maintenance`）下发执行，见 [16 Linux 权限管理](16-linux-permissions.md)
 - 服务器校验"应用层排班权限 + Linux 用户身份 + 目标路径授权"三重匹配后才派发任务
+- control-api 容器不直接创建进程：本机任务经宿主机 systemd 服务执行，构建/测试经 executor / CI Runner 执行节点运行（见 [16.8](16-linux-permissions.md#168-执行节点executor-pc权限模型)）

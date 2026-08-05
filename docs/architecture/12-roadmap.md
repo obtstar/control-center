@@ -3,7 +3,7 @@
 | 阶段 | 周期 | 交付 |
 |-----|------|------|
 | **一期：基础平台** | 2-3 周 | 控制中心仓库（设计文档 + 编排配置）+ 代码仓库脚手架（`control-api` Spring / `control-web` React / `control-db` MySQL DDL+DML）· 接入企业内 LiteLLM 代理 · 仓库 OpenAPI 集成 · RAG 只读检索（概要/外部设计集中 + 内部设计随代码仓库）· 工作记录与工作报告 |
-| **二期：审核工作流** | 3-4 周 | 瀑布状态机 + 人工闸门 + Worktree 多分支管理（feature→dev）· Bug 修复（低危） |
+| **二期：审核工作流** | 3-4 周 | 瀑布状态机 + 人工闸门 + Worktree 多分支管理（feature→dev）· 执行节点接入（executor 代理 / CI Runner）· Bug 修复（低危） |
 | **三期：完整闭环** | 6-8 周 | 功能追加全流程 · release→main 发布 · 自我升级 + 排班管理 + 审计检索增强 |
 
 ## 里程碑

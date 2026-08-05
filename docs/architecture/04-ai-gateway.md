@@ -52,8 +52,8 @@ router_settings:
   fallbacks:                                 # 模型降级，保证任务不中断
     claude-sonnet: ["copilot-chat"]
     claude-opus:   ["claude-sonnet", "copilot-chat"]
-  context_window_fallbacks:                  # 超长上下文自动降级
-    claude-sonnet: ["copilot-chat"]
+  # 不配置 context_window_fallbacks：copilot-chat（gpt-4o，128K）窗口小于
+  # claude 系列（200K），超长降级必然失败；超长上下文由应用层截断/分块处理
 
 model_group_alias:                           # 业务别名，调用方不改配置即可换模型
   coding:   claude-sonnet                    # 默认编码
@@ -73,7 +73,7 @@ general_settings:
 
 | 优化项 | 收益 |
 |-------|------|
-| `fallbacks` + `context_window_fallbacks` | opus 故障/超长上下文自动降级到 sonnet/copilot，任务不中断 |
+| `fallbacks` | opus 故障自动降级到 sonnet/copilot，任务不中断；超长上下文由应用层截断/分块处理（不走模型降级，copilot 窗口更小） |
 | `model_group_alias`（coding/cheap/heavy） | pi.dev 与 control-api 按业务名调用，模型升级零改动 |
 | `database_url` + `budget_duration` + `default_max_budget` | 用量记录与月度配额，治理外接模型成本 |
 | `request_timeout=600` + `num_retries=3` + `cooldown` | 适配 Agent 长任务，故障自愈 |

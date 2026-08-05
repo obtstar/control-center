@@ -51,4 +51,4 @@
 - **后端**：Java Spring Boot（Spring MVC + Spring Data JPA/MyBatis + Spring Security）
 - **数据库**：MySQL（DDL/DML 版本化管控）
 - **执行层**：pi.dev 核心工具（兼容 Claude Code / VSCode Copilot）+ Git Worktree
-- **AI**：消费企业内 LiteLLM 代理外接 Anthropic（Claude）+ GitHub Copilot（GPT-4o），**不跑本地 Ollama、不重复部署 LiteLLM**（见 [04](04-l3-ai-gateway.md)）
+- **AI**：消费企业内 LiteLLM 代理外接 Anthropic（Claude）+ GitHub Copilot（GPT-4o），**不跑本地 Ollama、不重复部署 LiteLLM**（见 [04](04-ai-gateway.md)）

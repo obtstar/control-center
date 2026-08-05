@@ -48,9 +48,10 @@ bugfix/042 ───────┘
 ## 执行 Agent 职责
 
 - 终端 CLI Agent（**pi.dev 为核心工具**），**自定义为兼容 Claude Code / VSCode Copilot 的 Agent 工作流**
-- 模型统一经企业内 LiteLLM 代理外接：`claude-sonnet` / `claude-opus`（Anthropic）+ `copilot-chat`（GitHub Copilot）；业务调用用别名 `coding` / `cheap` / `heavy`，见 [04 AI 网关](04-l3-ai-gateway.md)
+- 模型统一经企业内 LiteLLM 代理外接：`claude-sonnet` / `claude-opus`（Anthropic）+ `copilot-chat`（GitHub Copilot）；业务调用用别名 `coding` / `cheap` / `heavy`，见 [04 AI 网关](04-ai-gateway.md)
 - 接收控制中心指令，操作 Worktree 与 Git
 - 所有文件/Git 操作仅限分配的 Worktree 内执行；出站网络仅放行 LiteLLM 模型端点
+- **执行节点（executor）例外口径**：在员工 PC 本地临时执行区（`~/executor/workspace`）操作，出站放行 control-api / `git.internal` / LiteLLM 代理端点，详见 [16.8](16-linux-permissions.md#168-执行节点executor-pc权限模型)
 
 ## 工具通道（WSL CLI / VSCode / Web）
 
@@ -61,7 +62,7 @@ bugfix/042 ───────┘
 | 编码/重构/单元测试 | **WSL CLI（pi.dev）** | Agent 在 WSL 内自动执行，操作 `~/wt/` Worktree |
 | 人工编码/审查/微调 | **VSCode（Remote-WSL）** | 开发者经 VSCode 连接 WSL，浏览/编辑/调试 Agent 产出；VSCode Extension 负责路径转换与 Diff 预览同步 |
 | 设计文档/影响分析/RAG 检索 | **Web 客户端** | 设计者工作台 + Agent 生成（经 WSL CLI 提交 MR） |
-| 测试执行（集成/回归/静态检查） | **WSL CLI** | Agent/CI 在 WSL 内运行测试命令，报告回传 Web 测试者工作台 |
+| 测试执行（集成/回归/静态检查） | **执行节点**（CI Runner / executor） | 重负载构建测试在执行节点运行（见 [10 节点拆分](10-deployment.md#节点拆分编排节点-vs-执行节点)）；编排节点仅做提交前轻量校验；报告回传 Web 测试者工作台 |
 | 审核/闸门/审计 | **Web 客户端** | Diff 预览、批注、阶段审批、审计检索 |
 
 > 原则：**自动化执行一律走 WSL CLI（pi.dev）**，人工交互编码用 VSCode（Remote-WSL），设计文档与人工审核走 Web。三条通道共享同一 WSL 文件系统与 `~/wt/`/`~/repos/` 布局（见 [13.1](13-repo-template.md#131-wsl-开发环境目录架构以-linux-home-为基础)）。

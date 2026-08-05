@@ -9,15 +9,15 @@
 |-----|------|------|
 | 00 | [设计原则](00-principles.md) | 核心原则：AI 驱动执行、Git 唯一可信源、数据内网 AI 外接受控、审计不可篡改等 |
 | 01 | [总体架构](01-overview.md) | 控制中心仓库 + 多代码仓库总体架构与集成对象 |
-| 02 | [多代码仓库与分支管理](02-l1-execution.md) | Git Worktree 多分支策略：main / dev / release / feature |
-| 03 | [设计开发控制 & 文档管理](03-l2-ai-capability.md) | 概要/外部设计集中于控制中心、**内部设计与代码同库**、OpenAPI 集成、RAG 任务管理 |
-| 04 | [AI 网关层](04-l3-ai-gateway.md) | 消费企业内 LiteLLM 代理（api.anthropic.com + ghe.com 企业版），模型路由/降级/预算优化 |
-| 05 | [Agent 编排层](05-l4-orchestration.md) | Java Spring 任务管理、瀑布状态机、排班权限、自我升级 |
-| 06 | [Web 管理端](06-l5-web.md) | React + PrimeReact + Vite：看板、闸门、审核、排班、审计 |
+| 02 | [多代码仓库与分支管理](02-branch-worktree.md) | Git Worktree 多分支策略：main / dev / release / feature |
+| 03 | [设计开发控制 & 文档管理](03-doc-management.md) | 概要/外部设计集中于控制中心、**内部设计与代码同库**、OpenAPI 集成、RAG 任务管理 |
+| 04 | [AI 网关层](04-ai-gateway.md) | 消费企业内 LiteLLM 代理（api.anthropic.com + ghe.com 企业版），模型路由/降级/预算优化 |
+| 05 | [Agent 编排层](05-orchestration.md) | Java Spring 任务管理、瀑布状态机、排班权限、自我升级 |
+| 06 | [Web 管理端](06-web.md) | React + PrimeReact + Vite：看板、闸门、审核、排班、审计 |
 | 07 | [工作流](07-workflows.md) | 瀑布开发、功能追加、Bug 修复、自我升级四类工作流 |
 | 08 | [数据模型与排班](08-data-model.md) | MySQL DDL/DML：任务、工作记录、审核、排班、文档、工作报告表 |
 | 09 | [数据流示例](09-data-flow.md) | 功能追加全流程端到端示例 |
-| 10 | [内网部署](10-deployment.md) | docker-compose 最小可行部署、资源分配 |
+| 10 | [内网部署](10-deployment.md) | docker-compose 模拟综合测试环境（非生产形态）、测试/生产边界、编排/执行节点拆分、executor 代理（复用办公 PC）、资源分配 |
 | 11 | [安全与合规](11-security.md) | 风险清单与对策、审计合规 |
 | 12 | [实施路径](12-roadmap.md) | 三期交付计划与里程碑 |
 | 13 | [仓库模板](13-repo-template.md) | 控制中心仓库（无代码实现）、平台/业务代码仓库模板、提交/MR/pre-commit 规范 |
