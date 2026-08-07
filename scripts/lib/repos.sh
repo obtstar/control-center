@@ -147,12 +147,28 @@ sync_repo_infra() { # $1=repo_key $2=git_url $3=工作区绝对路径
     update_repo "$dest" "$key"
     return 0
   fi
+  # gitdir 已存在：有效则直接链接工作区，无效残留清理后重克隆
+  if [[ -d "$gitdir" ]]; then
+    own "$gitdir"
+    if gitu "--git-dir '$gitdir' rev-parse HEAD" >/dev/null 2>&1; then
+      mkdir -p "$dest"
+      echo "gitdir: $gitdir" > "$dest/.git"
+      gitu "--git-dir '$gitdir' config core.worktree '$dest'"
+      own "$dest"
+      gitu "-C '$dest' checkout -fq dev" >/dev/null 2>&1 \
+        || gitu "-C '$dest' checkout -fq" >/dev/null 2>&1
+      log "链接工作区: $key（复用已有 gitdir: ~/.repos/$key.git）"
+      return 0
+    else
+      warn "残留无效 gitdir，清理后重克隆: $gitdir"
+      rm -rf "$gitdir"
+    fi
+  fi
   [[ -z "$url" ]] && { warn "无远程地址，跳过: $key"; return 0; }
   mkdir -p "$BASE_HOME/.repos"
   own "$BASE_HOME/.repos"
   if gitu "clone --separate-git-dir '$gitdir' '$url' '$dest'"; then
     log "克隆仓库: $key（gitdir: ~/.repos/$key.git）"
-    # 本地默认工作分支 dev（无 dev 分支时保持 main）
     gitu "-C '$dest' checkout -q dev" >/dev/null 2>&1 || true
     own "$dest" "$gitdir"
   else
