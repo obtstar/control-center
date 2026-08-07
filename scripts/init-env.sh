@@ -673,22 +673,30 @@ resolve_remote_base() {
   esac
 }
 
-init_repos() {
-  command -v git >/dev/null || { warn "未安装 git，跳过仓库骨架"; return 0; }
+init_control_center() {
+  command -v git >/dev/null || { warn "未安装 git，跳过 control-center 克隆"; return 0; }
   resolve_remote_base
-  # 控制中心本仓库（文档/编排/注册表）：直接克隆，不再创建空骨架
-  if [[ ! -d "$BASE_HOME/control-center/.git" ]]; then
+  if [[ -d "$BASE_HOME/control-center/.git" ]]; then
+    log "control-center 已存在，跳过克隆"
+  else
     clone_remote control-center "$BASE_HOME/control-center" \
       || warn "control-center 未克隆（可后续手动: git clone <remote> $BASE_HOME/control-center）"
   fi
-  [[ -d "$BASE_HOME/control-center" ]] && chmod 750 "$BASE_HOME/control-center"
+  if [[ -d "$BASE_HOME/control-center" ]]; then
+    chmod 750 "$BASE_HOME/control-center"
+    [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/control-center"
+  fi
+}
+
+init_repos() {
+  command -v git >/dev/null || { warn "未安装 git，跳过仓库骨架"; return 0; }
+  resolve_remote_base
   for r in control-api control-web control-db; do
     init_repo_skeleton "$r"
   done
   # root(sudo) 运行时把仓库归属工作用户（16.3 权限模型）
   if [[ $EUID -eq 0 ]]; then
-    chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos" \
-      "$BASE_HOME/control-center" 2>/dev/null || true
+    chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos" 2>/dev/null || true
   fi
 }
 
@@ -917,7 +925,8 @@ else
   step_enabled "目录结构" 0 && init_dirs
   step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
   init_mirrors
-  step_enabled "代码仓库（克隆/骨架）" "$SKIP_REPOS" && init_repos
+  step_enabled "控制中心仓库（control-center 克隆）" "$SKIP_REPOS" && init_control_center
+  step_enabled "代码仓库（control-api/web/db 克隆/骨架）" "$SKIP_REPOS" && init_repos
   step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_env_config
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
