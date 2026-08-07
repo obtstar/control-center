@@ -659,7 +659,7 @@ resolve_remote_base() {
   local proto="${GIT_PROTO:-}" host="${GIT_REMOTE_HOST:-github.com/obtstar}"
   if [[ -z "$proto" ]] && has_tty; then
     echo "平台仓库远程协议（克隆/推送 control-api/control-web/control-db）：" >&2
-    echo "  1) ssh   git@$host" >&2
+    echo "  1) ssh   git@${host/\//:}" >&2
     echo "  2) http  https://$host" >&2
     echo "  回车跳过（仅本地骨架，不关联远程）" >&2
     read -rp "选择 [1/2]: " proto </dev/tty
@@ -667,7 +667,7 @@ resolve_remote_base() {
     [[ "$proto" == "2" ]] && proto=http
   fi
   case "$proto" in
-    ssh)        GIT_REMOTE_BASE="git@$host" ;;
+    ssh)        GIT_REMOTE_BASE="git@${host/\//:}" ;;   # scp 语法: git@github.com:obtstar
     http|https) GIT_REMOTE_BASE="https://$host"
                 warn "http 协议克隆私有仓库需凭据（token/凭据助手），否则仅公开仓库可用" ;;
   esac
