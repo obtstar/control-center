@@ -49,7 +49,8 @@ pipeline:
     - id: merge                 # 待合并（终审）
       artifact: MR + heavy 模型自评报告
       quality_gate: [tests_green, heavy_self_review]   # 进入本阶段的前置自动关
-      approval: gitlab          # 终审在 GitLab 人工合并，平台无合并按钮
+      approval: team_mr_review  # 终审：团队员工评审合并入 dev/release，平台无合并按钮
+      done_when: merged_by_teammate   # 仅 push/建 MR 不算完成，合并事件回传才算
       webhook: merge_event      # 合并事件回传 → deliver
 
     - id: deliver               # 交付
