@@ -149,6 +149,7 @@ sync_repo_infra() { # $1=repo_key $2=git_url $3=工作区绝对路径
   fi
   [[ -z "$url" ]] && { warn "无远程地址，跳过: $key"; return 0; }
   mkdir -p "$BASE_HOME/.repos"
+  own "$BASE_HOME/.repos"
   if gitu "clone --separate-git-dir '$gitdir' '$url' '$dest'" >/dev/null 2>&1; then
     log "克隆仓库: $key（gitdir: ~/.repos/$key.git）"
     # 本地默认工作分支 dev（无 dev 分支时保持 main）
@@ -165,6 +166,7 @@ sync_repos() {
   [[ -f "$yaml" ]] || { warn "注册表不存在: $yaml（先完成阶段一克隆 control-center）"; return 0; }
   resolve_remote_base
   mkdir -p "$BASE_HOME/.repos"
+  own "$BASE_HOME/.repos"
   local key path url branch dest
   while IFS=$'\t' read -r key path url branch; do
     dest="$BASE_HOME/$path"
