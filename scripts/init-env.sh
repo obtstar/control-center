@@ -24,15 +24,17 @@ usage() {
   --control-api URL 编排节点 control-api 地址（executor 模式使用，
                     不传则交互式询问，如 http://192.168.1.10:8080）
   --skip-users      跳过 Linux 用户配置
-  --skip-repos      跳过代码仓库骨架初始化
+  --skip-repos      跳过仓库克隆/骨架初始化
   --skip-compose    跳过 docker-compose 生成与启动
-  --skip-tooling    跳过 pi / openskills 安装与 ~/.pi 配置
+  --skip-tooling    跳过语言/框架与 pi/openskills 安装
   --check           仅做环境校验（预检 + 后检），不执行初始化
   -h, --help        显示帮助
 环境变量:
-  NPM_REGISTRY      npm 内网镜像（如 http://npm.internal:4873），安装 pi/openskills 时使用
-  PIP_INDEX_URL     pip 镜像（如 http://pypi.internal/simple），
-                    未设置时默认清华镜像 https://pypi.tuna.tsinghua.edu.cn/simple
+  NPM_REGISTRY      npm 镜像（默认 https://registry.npmmirror.com，pi/openskills/corepack 用）
+  PIP_INDEX_URL     pip 镜像（默认清华镜像）
+  UV_INDEX_URL      uv 镜像（默认清华镜像）
+  GH_PROXY          GitHub 加速代理前缀（如 https://gh.dpik.top），nvm/uv 安装器下载用
+  NVM_NODEJS_ORG_MIRROR  nvm 下载 Node 的镜像（默认 https://npmmirror.com/mirrors/node）
   LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
   GIT_REMOTE_BASE   仓库远程地址前缀（如 git@github.com:obtstar）：
                     远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev
@@ -336,6 +338,9 @@ as_target_user() { # 以工作用户身份执行：root→su；本人→直接�
   fi
 }
 
+# 用户级工具链环境前缀（uv/nvm/~/.local/bin），探测与执行统一加载
+USER_ENV='export PATH="$HOME/.local/bin:$PATH"; source "$HOME/.nvm/nvm.sh" 2>/dev/null;'
+
 try_install() { # $1=名称 $2=检测命令 $3=安装命令 $4=升级命令（可选）
   local name="$1" check="$2" cmd="$3" upcmd="${4:-}"
   if [[ -n "$check" ]] && as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; command -v $check" &>/dev/null; then
@@ -529,21 +534,19 @@ init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
 install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 chown）
   local home="$1" user="${2:-}"
 
-  # 5.1 pi（Earendil Pi Coding Agent，02 章执行层核心工具）
-  if command -v pi &>/dev/null; then
+  # 5.1 pi（Earendil Pi Coding Agent，以工作用户身份装入其用户级 npm）
+  if as_target_user "$USER_ENV command -v pi" &>/dev/null; then
     if confirm_opt "pi 已安装，是否升级？"; then
-      npm update -g --ignore-scripts @earendil-works/pi-coding-agent \
-        ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+      as_target_user "$USER_ENV npm update -g --ignore-scripts @earendil-works/pi-coding-agent --registry='$NPM_REGISTRY'" \
         && log "pi 升级完成" || warn "pi 升级失败（保留现有版本）"
     else
       log "pi 已安装，跳过"
     fi
-  elif command -v npm &>/dev/null; then
-    npm install -g --ignore-scripts @earendil-works/pi-coding-agent \
-      ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+  elif as_target_user "$USER_ENV command -v npm" &>/dev/null; then
+    as_target_user "$USER_ENV npm install -g --ignore-scripts @earendil-works/pi-coding-agent --registry='$NPM_REGISTRY'" \
       && log "pi 安装完成" || warn "pi 安装失败（网络受限？可 vendor 后重试）"
   else
-    warn "未安装 npm，跳过 pi 安装（需 Node.js 环境）"
+    warn "npm 未安装，跳过 pi（先在工具链步骤安装 Node.js）"
   fi
 
   # 5.2 ~/.pi/models.json：自定义 provider 指向企业 LiteLLM 代理（04 章）
@@ -563,18 +566,16 @@ EOF
     log "已生成 $home/.pi/models.json（LiteLLM 代理，别名 coding/cheap/heavy）"
   fi
 
-  # 5.3 openskills（07.3：SKILL.md 技能管理）
-  if command -v openskills &>/dev/null; then
+  # 5.3 openskills（07.3：SKILL.md 技能管理，同 pi 走工作用户用户级 npm）
+  if as_target_user "$USER_ENV command -v openskills" &>/dev/null; then
     if confirm_opt "openskills 已安装，是否升级？"; then
-      npm update -g --ignore-scripts openskills \
-        ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+      as_target_user "$USER_ENV npm update -g --ignore-scripts openskills --registry='$NPM_REGISTRY'" \
         && log "openskills 升级完成" || warn "openskills 升级失败（保留现有版本）"
     else
       log "openskills 已安装，跳过"
     fi
-  elif command -v npm &>/dev/null; then
-    npm install -g --ignore-scripts openskills \
-      ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+  elif as_target_user "$USER_ENV command -v npm" &>/dev/null; then
+    as_target_user "$USER_ENV npm install -g --ignore-scripts openskills --registry='$NPM_REGISTRY'" \
       && log "openskills 安装完成" || warn "openskills 安装失败，可后续手动安装"
   fi
 
@@ -661,7 +662,7 @@ resolve_remote_base() {
   [[ -n "${GIT_REMOTE_BASE:-}" ]] && return 0
   local proto="${GIT_PROTO:-}" host="${GIT_REMOTE_HOST:-github.com/obtstar}"
   if [[ -z "$proto" ]] && has_tty; then
-    echo "平台仓库远程协议（克隆/推送 control-api/control-web/control-db）：" >&2
+    echo "仓库远程协议（克隆/推送 control-center 与 control-api/control-web/control-db）：" >&2
     echo "  1) ssh   git@${host/\//:}" >&2
     echo "  2) http  https://$host" >&2
     echo "  回车跳过（仅本地骨架，不关联远程）" >&2
@@ -811,12 +812,15 @@ init_executor() {
     log "executor 服务账号: agent（非 root、无 sudo）"
   fi
 
-  # 能力标签按本机工具链探测
+  # 能力标签按工作用户工具链探测（用户级安装，root 上下文看不到）
   local tags=()
-  command -v java  &>/dev/null && tags+=("java$(java -version 2>&1 | grep -oP '(?<=version ")[0-9]+' | head -1)")
-  command -v node  &>/dev/null && tags+=("node$(node -v | tr -d 'v' | cut -d. -f1)")
-  command -v pnpm  &>/dev/null && tags+=("pnpm")
-  command -v npx   &>/dev/null && npx --no-install playwright --version &>/dev/null && tags+=("playwright")
+  as_target_user "$USER_ENV command -v java" &>/dev/null \
+    && tags+=("java$(as_target_user "$USER_ENV java -version" 2>&1 | grep -oP '(?<=version ")[0-9]+' | head -1)")
+  as_target_user "$USER_ENV command -v node" &>/dev/null \
+    && tags+=("node$(as_target_user "$USER_ENV node -v" 2>/dev/null | tr -d 'v' | cut -d. -f1)")
+  as_target_user "$USER_ENV command -v pnpm" &>/dev/null && tags+=("pnpm")
+  as_target_user "$USER_ENV bash -c 'command -v npx && npx --no-install playwright --version'" &>/dev/null \
+    && tags+=("playwright")
   local tag_csv
   tag_csv=$(IFS=,; echo "${tags[*]:-}")
 
@@ -830,7 +834,8 @@ CONTROL_API=$CONTROL_API
 EXECUTOR_ID=$executor_id
 EXECUTOR_TOKEN=change-me
 EXECUTOR_TAGS=$tag_csv
-EXECUTOR_SLOTS=1
+EXECUTOR_SLOTS_DAY=1
+EXECUTOR_SLOTS_NIGHT=2
 EOF
   chmod 600 "$BASE_HOME/executor/.env"
 
@@ -902,10 +907,10 @@ if [[ $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
     log "创建工作用户: $OWNER（home: /home/$OWNER）"
     # 新用户默认无密码（直登锁定）：交互设置密码 / 迁移 SSH 公钥
     if has_tty; then
-      local ans
+      ans=""
       read -rp "为 $OWNER 设置登录密码？[y/N] " ans </dev/tty
       [[ "$ans" =~ ^[yY](es)?$ ]] && passwd "$OWNER"
-      local invoker="${SUDO_USER:-}"
+      invoker="${SUDO_USER:-}"
       if [[ -n "$invoker" && -s "/home/$invoker/.ssh/authorized_keys" ]]; then
         read -rp "复制 $invoker 的 SSH 公钥到 $OWNER（免密登录）？[Y/n] " ans </dev/tty
         if [[ ! "$ans" =~ ^[nN](o)?$ ]]; then
