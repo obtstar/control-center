@@ -64,7 +64,7 @@ Java+Maven（**清华镜像直装** Temurin 17 + Maven，落 `~/.local`，不依
 
 | 变量 | 说明 |
 |-----|------|
-| `NPM_REGISTRY` | npm 内网镜像（安装 pi/openskills 用） |
+| `NPM_REGISTRY` | npm 镜像（pi/openskills/corepack 用），未设置时默认 `https://registry.npmmirror.com` |
 | `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
 | `GIT_REMOTE_BASE` | 仓库远程地址全量前缀：远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev |

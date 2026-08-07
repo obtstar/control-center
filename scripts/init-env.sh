@@ -52,6 +52,8 @@ export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
 export UV_INDEX_URL="${UV_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 # GitHub 加速代理前缀（如 https://gh.dpik.top），作用于 nvm/uv 安装器下载
 GH_PROXY="${GH_PROXY:-}"
+# npm 镜像：优先内网镜像（NPM_REGISTRY），未设置时默认 npmmirror（pi/openskills/corepack 用）
+NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmmirror.com}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --owner) OWNER="$2"; OWNER_SET=1; shift 2 ;;
@@ -326,9 +328,9 @@ as_target_user() { # 以工作用户身份执行：root→su；本人→直接�
   if [[ "$(id -un)" == "$OWNER" ]]; then
     bash -lc "$1"
   elif [[ $EUID -eq 0 ]]; then
-    su - "$OWNER" -c "$1" 2>/dev/null
+    su - "$OWNER" -c "$1"
   elif command -v sudo &>/dev/null && sudo -n -u "$OWNER" true 2>/dev/null; then
-    sudo -n -u "$OWNER" bash -lc "$1" 2>/dev/null
+    sudo -n -u "$OWNER" bash -lc "$1"
   else
     return 127
   fi
@@ -409,13 +411,14 @@ EOF
   try_install "Node.js LTS（nvm）" node \
     "$node_mirror curl -fsSL $nvm_url | bash \
       && source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts" \
-    "$node_mirror source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts --reinstall-packages-from=current"
-  try_install "uv（Python 版本/包管理）" uv "$uv_cmd" \
-    'export PATH="$HOME/.local/bin:$PATH"; uv self update'
+    "$node_mirror source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts"
+  try_install "uv（Python 版本/包管理）" uv "$uv_cmd" "$uv_cmd"
   try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
-    'source "$HOME/.nvm/nvm.sh" 2>/dev/null \
+    'export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-https://registry.npmmirror.com}"; \
+      source "$HOME/.nvm/nvm.sh" 2>/dev/null \
       && corepack enable && corepack prepare pnpm@latest --activate' \
-    'source "$HOME/.nvm/nvm.sh" 2>/dev/null && corepack prepare pnpm@latest --activate'
+    'export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-https://registry.npmmirror.com}"; \
+      source "$HOME/.nvm/nvm.sh" 2>/dev/null && corepack prepare pnpm@latest --activate'
   if as_target_user 'command -v docker' &>/dev/null; then
     try_install "Docker rootless 模式（用户级守护进程）" "" \
       'dockerd-rootless-setuptool.sh install'
@@ -874,7 +877,11 @@ post_init_migrate() {
     fi
   fi
   if [[ "$(id -un)" != "$OWNER" ]] && confirm_opt "初始化完成，切换到工作用户 $OWNER（su - $OWNER）？"; then
-    exec su - "$OWNER"
+    if has_tty; then
+      exec su - "$OWNER" </dev/tty
+    else
+      log "请手动执行: su - $OWNER"
+    fi
   fi
 }
 
