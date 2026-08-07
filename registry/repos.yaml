@@ -15,7 +15,7 @@ repos:
 
   - repo_key: control-api
     name: 平台后端
-    path: wt/control-api/dev       # 常驻工作区（gitdir: ~/.repos/control-api.git）
+    path: control-api                # 平台组件（顶级目录，gitdir: ~/.repos/control-api.git）
     git_url: git@github.com:obtstar/control-api.git
     api_type: GITHUB
     token_ref: env:GIT_TOKEN
@@ -27,7 +27,7 @@ repos:
 
   - repo_key: control-web
     name: 平台前端
-    path: wt/control-web/dev
+    path: control-web
     git_url: git@github.com:obtstar/control-web.git
     api_type: GITHUB
     token_ref: env:GIT_TOKEN
@@ -38,7 +38,7 @@ repos:
 
   - repo_key: control-db
     name: 平台数据库 DDL
-    path: wt/control-db/dev
+    path: control-db
     git_url: git@github.com:obtstar/control-db.git
     api_type: GITHUB
     token_ref: env:GIT_TOKEN

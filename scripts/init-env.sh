@@ -187,13 +187,12 @@ init_users_dirs() {
     log "用户 $OWNER 已加入 docker 组（免 sudo，重新登录生效）"
   fi
 
-  # 目录结构（16.3：owner 控制面，agent 独占 wt/executor）
+  # 目录结构（16.3：owner 控制面；wt 为 owner+agent 共享工作区根，setgid 继承组）
   # gitdir 集中 ~/.repos（bare）；常驻/任务工作区统一 ~/wt（13 章）
   mkdir -p "$BASE_HOME"/{.repos,wt,data/mysql,data/milvus,logs,scripts,deploy/mysql/init}
   chmod 750 "$BASE_HOME/data" "$BASE_HOME/logs" "$BASE_HOME/.repos"
-  chmod 770 "$BASE_HOME/wt"
   chown -R "$OWNER:$ogroup" "$BASE_HOME"/{.repos,data,logs,scripts,deploy}
-  chown -R "agent:$ogroup" "$BASE_HOME/wt"; chmod 770 "$BASE_HOME/wt"
+  chown -R "$OWNER:$ogroup" "$BASE_HOME/wt"; chmod 2770 "$BASE_HOME/wt"
   if [[ $EXECUTOR -eq 1 ]]; then
     mkdir -p "$BASE_HOME/executor"/{workspace,cache,logs}
     chown -R "agent:$ogroup" "$BASE_HOME/executor"; chmod 770 "$BASE_HOME/executor"

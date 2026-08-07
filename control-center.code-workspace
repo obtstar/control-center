@@ -10,15 +10,15 @@
     },
     {
       "name": "control-api(dev)",
-      "path": "../wt/control-api/dev"
+      "path": "../control-api"
     },
     {
       "name": "control-web(dev)",
-      "path": "../wt/control-web/dev"
+      "path": "../control-web"
     },
     {
       "name": "control-db(dev)",
-      "path": "../wt/control-db/dev"
+      "path": "../control-db"
     },
     {
       "name": "piekbs（源码）",

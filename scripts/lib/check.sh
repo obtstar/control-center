@@ -111,7 +111,7 @@ check_post() {
       && chk_pass "docker-compose.yml" || chk_warn "compose 未生成"
     local r b
     for r in control-api control-web control-db; do
-      t_test "-e '$BASE_HOME/wt/$r/dev/.git'" && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
+      t_test "-e '$BASE_HOME/$r/.git'" && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
     done
     t_test "-e '$BASE_HOME/piekbs/.git'" \
       && chk_pass "仓库: piekbs" || chk_warn "仓库未初始化: piekbs"
