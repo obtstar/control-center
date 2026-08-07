@@ -90,9 +90,11 @@ check_pre() {
   grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null \
     && chk_pass "WSL 环境" || chk_warn "非 WSL（Linux 原生可用，路径语义一致）"
 
-  # 命令检测以工作用户（dev）环境为准；未创建则跳过（与执行者无关）
+  # 命令检测切换到工作用户（dev）上下文；未创建或无法切换则跳过
   if [[ $EXECUTOR -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
     chk_warn "工作用户 $OWNER 未创建，跳过用户环境检测（初始化时将自动创建）"
+  elif ! as_target_user 'true' &>/dev/null; then
+    chk_warn "无法切换到 $OWNER 用户上下文（需 root 或免密 sudo），跳过用户环境检测"
   else
   local c
   for c in git python3 curl; do
@@ -104,6 +106,13 @@ check_pre() {
 
   as_target_user "python3 -c 'import ensurepip'" >/dev/null 2>&1 \
     && chk_pass "python3 venv 支持" || chk_warn "缺 ensurepip：apt install python3-venv"
+
+  # docker 免 sudo：工作用户在 docker 组中
+  if as_target_user "command -v docker" >/dev/null 2>&1; then
+    as_target_user "id -nG | grep -qw docker" >/dev/null 2>&1 \
+      && chk_pass "$OWNER 在 docker 组（免 sudo）" \
+      || chk_warn "$OWNER 不在 docker 组：docker 需 sudo（初始化时自动加入，重新登录生效）"
+  fi
   fi
 
   local avail
@@ -129,9 +138,13 @@ check_pre() {
 
 check_post() {
   log "环境后检（base: $BASE_HOME）"
-  # 后检以工作用户环境为准；未创建则跳过
+  # 后检以工作用户环境为准；未创建或无法读取其 home 则跳过
   if [[ $EXECUTOR -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
     chk_warn "工作用户 $OWNER 未创建，跳过用户环境后检"
+    return 0
+  fi
+  if [[ "$(id -un)" != "$OWNER" && $EUID -ne 0 ]] && ! as_target_user 'true' &>/dev/null; then
+    chk_warn "无法切换到 $OWNER 用户上下文（需 root 或免密 sudo），跳过用户环境后检"
     return 0
   fi
   # 尚未初始化：整体提示，不逐项 FAIL
@@ -229,6 +242,12 @@ init_users() {
   usermod -aG "$ogroup" agent
   chgrp -R "$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" 2>/dev/null || true
 
+  # docker 免 sudo：工作用户加入 docker 组（组存在时，重新登录生效）
+  if getent group docker &>/dev/null; then
+    usermod -aG docker "$OWNER"
+    log "用户 $OWNER 已加入 docker 组（免 sudo 执行，重新登录后生效）"
+  fi
+
   # 目录属主（16.3）：owner 拥有控制面，agent 独占 ~/wt
   chown -R "$OWNER:$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" \
     "$BASE_HOME/data" "$BASE_HOME/logs" 2>/dev/null || true
@@ -248,11 +267,15 @@ confirm_opt() { # 非交互默认跳过
   [[ "$ans" =~ ^[yY](es)?$ ]]
 }
 
-as_target_user() { # 以工作用户身份执行（root 时 su 到 $OWNER）
-  if [[ $EUID -eq 0 ]] && [[ "$OWNER" != "root" ]] && id "$OWNER" &>/dev/null; then
-    su - "$OWNER" -c "$1"
-  else
+as_target_user() { # 以工作用户身份执行：root→su；本人→直接执行；否则尝试免密 sudo -u
+  if [[ "$(id -un)" == "$OWNER" ]]; then
     bash -lc "$1"
+  elif [[ $EUID -eq 0 ]]; then
+    su - "$OWNER" -c "$1" 2>/dev/null
+  elif command -v sudo &>/dev/null && sudo -n -u "$OWNER" true 2>/dev/null; then
+    sudo -n -u "$OWNER" bash -lc "$1" 2>/dev/null
+  else
+    return 127
   fi
 }
 
