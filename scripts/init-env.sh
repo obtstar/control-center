@@ -666,7 +666,10 @@ clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调�
 
 init_repo_skeleton() { # $1=repo 名
   local repo="$BASE_HOME/repos/$1"
-  [[ -d "$repo/.git" ]] && { log "仓库已存在，跳过: $1"; return 0; }
+  if [[ -d "$repo/.git" ]]; then
+    update_repo "$repo" "$1"
+    return 0
+  fi
   # 远程已有内容则克隆（新机器接入）；否则本地初始化骨架
   clone_remote "$1" "$repo" && return 0
 
@@ -726,11 +729,20 @@ resolve_remote_base() {
   esac
 }
 
+# 已存在仓库以 git pull 更新（以工作用户身份，--ff-only 防合并冲突）
+update_repo() { # $1=路径 $2=名称
+  if as_target_user "git -C '$1' pull --ff-only" >/dev/null 2>&1; then
+    log "已更新: $2（git pull --ff-only）"
+  else
+    warn "更新失败（非快进/网络受限），保留现状: $2"
+  fi
+}
+
 init_control_center() {
   command -v git >/dev/null || { warn "未安装 git，跳过 control-center 克隆"; return 0; }
   resolve_remote_base
   if [[ -d "$BASE_HOME/control-center/.git" ]]; then
-    log "control-center 已存在，跳过克隆"
+    update_repo "$BASE_HOME/control-center" control-center
   else
     clone_remote control-center "$BASE_HOME/control-center" \
       || warn "control-center 未克隆（可后续手动: git clone <remote> $BASE_HOME/control-center）"
