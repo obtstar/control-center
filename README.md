@@ -19,7 +19,7 @@ Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本�
 
 ### 阶段一：init-env.sh（引导，需 root）
 
-只做三件事：**环境校验 → 创建工作用户（dev/agent）→ 克隆 control-center 本工程**，并植入首次登录钩子：
+只做三件事：**环境校验 → 创建工作用户（dev/agent）→ 克隆 control-center 本工程**，并植入首次登录钩子；顺带可装**系统级**常用工具（direnv/tmux，apt/pacman/dnf 自适应，默认 Y）：
 
 ```bash
 # 编排节点（第一台）
@@ -62,7 +62,7 @@ tty 交互运行：阶段一询问**工作用户**（默认 dev，非法输入�
 ### 用户级工具链（阶段二逐项询问，默认 N 跳过）
 
 Java+Maven（**清华镜像直装** Temurin 17 + Maven，`~/.local`）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、**Go（golang.google.cn，独立工具）**、**PieKBS（Agent 知识搜索引擎，MCP；KB 落 `~/control-wiki` 并 git 版本化推送 control-wiki 远程仓，distill 走 LiteLLM `cheap` 模型）**、Docker rootless（需已装 docker）。
-全部落在工作用户 home，不污染系统目录。
+全部落在工作用户 home，不污染系统目录（direnv/tmux 例外：系统级包，阶段一安装，direnv 钩子由阶段二写入 bashrc）。
 
 **国内镜像**（默认 Y）：npm→`registry.npmmirror.com`、pip→清华、uv→清华、Go 模块→`goproxy.cn`；可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`）作用于 nvm/uv/piekbs 下载。
 

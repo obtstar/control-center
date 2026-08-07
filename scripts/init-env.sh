@@ -265,6 +265,31 @@ EOF
   log "bashrc 已植入：control.env 挂载 + 阶段二首次登录钩子"
 }
 
+# ── 系统级常用工具（direnv/tmux 等，包管理器自适应）───────────
+install_sys_packages() {
+  local pkgs=(direnv tmux)
+  local missing=() p
+  for p in "${pkgs[@]}"; do
+    command -v "$p" &>/dev/null || missing+=("$p")
+  done
+  [[ ${#missing[@]} -eq 0 ]] && { log "系统工具已齐备: ${pkgs[*]}"; return 0; }
+  has_tty || { log "非交互，跳过系统工具安装: ${missing[*]}"; return 0; }
+  local ans
+  read -rp "安装系统级工具 ${missing[*]}？[Y/n] " ans </dev/tty
+  [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过: ${missing[*]}"; return 0; }
+  if command -v apt-get &>/dev/null; then
+    apt-get update -qq && apt-get install -y -qq "${missing[@]}"
+  elif command -v pacman &>/dev/null; then
+    pacman -Sy --noconfirm --needed "${missing[@]}"
+  elif command -v dnf &>/dev/null; then
+    dnf install -y "${missing[@]}"
+  else
+    warn "无法识别包管理器，请手动安装: ${missing[*]}"
+    return 0
+  fi
+  log "系统工具安装完成: ${missing[*]}（direnv 钩子由阶段二写入 bashrc）"
+}
+
 # ── main ──────────────────────────────────────────────────────
 if [[ $CHECK_ONLY -eq 1 ]]; then
   check_pre
@@ -275,6 +300,7 @@ fi
 interactive_setup
 check_pre
 init_users_dirs
+install_sys_packages
 clone_control_center
 install_setup_hook
 check_post || true

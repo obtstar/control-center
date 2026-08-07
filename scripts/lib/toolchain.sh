@@ -127,11 +127,15 @@ init_env_config() {
   own "$env_file"
   fi
 
-  # bashrc 幂等挂载
+  # bashrc 幂等挂载（control.env + direnv 钩子）
   local bashrc="$BASE_HOME/.bashrc"
   if [[ -w "$BASE_HOME" ]]; then
     grep -qF "control.env" "$bashrc" 2>/dev/null || \
       echo '[[ -f ~/control.env ]] && source ~/control.env' >> "$bashrc"
+    command -v direnv &>/dev/null \
+      && ! grep -qF 'direnv hook' "$bashrc" 2>/dev/null \
+      && echo 'eval "$(direnv hook bash)"' >> "$bashrc" \
+      && log "direnv 钩子已写入 bashrc"
   fi
 
   # systemd 用户会话环境（environment.d，piekbs/executor 用户服务可读）
