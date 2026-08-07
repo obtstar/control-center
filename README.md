@@ -26,11 +26,18 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 
 | 选项 | 说明 |
 |-----|------|
-| `--home DIR` | 基础 home 目录（默认 `$HOME`） |
+| `--home DIR` | 基础 home 目录（默认：工作用户的 home，非 root 时为 `$HOME`） |
+| `--owner NAME` | 工作用户（默认 `dev`；root 运行且不存在时自动创建） |
 | `--executor` | 执行节点模式 |
 | `--control-api URL` | 编排节点地址（executor 模式，不传则交互询问） |
 | `--skip-users` / `--skip-repos` / `--skip-compose` / `--skip-tooling` | 分步跳过 |
 | `--check` | **仅环境校验，不执行初始化** |
+
+初始化过程中会逐项询问安装**用户级**语言/框架（默认 `N` 回车跳过）：
+Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、Docker rootless（需已装 docker）。
+全部落在工作用户 home，不污染系统目录。
+
+随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）。
 
 ### 环境变量
 
@@ -65,15 +72,18 @@ ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/obtstar/control-cen
 
 ```bash
 bash scripts/uninstall-env.sh              # 编排节点，逐项交互确认
-bash scripts/uninstall-env.sh --executor   # 执行节点
+bash scripts/uninstall-env.sh --executor   # 执行节点（仅删 agent 用户）
 bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
 ```
 
-删除 `control-center` 前会检查未提交/未推送的 Git 更改并告警。
+删除 `control-center` 前会检查未提交/未推送的 Git 更改并告警；用户清理为
+**工作用户（默认 `dev`，`--owner` 指定）+ `agent` 两个用户**，工作用户 home
+即环境基目录时连 home 一并删除（`userdel -r`）。
 
 ### 注意事项
 
-- 编排节点需 root（创建 `agent` 用户）；executor 模式需 root（创建 `agent`）
+- 编排节点需 root（新建工作用户 `dev` 与 `agent`）；executor 模式需 root（创建 `agent`）
+- root 运行且未指定 `--home` 时，基目录自动取工作用户的 home（避免 sudo 落到 `/root`）
 - Debian/Ubuntu 先装 `sudo apt install python3-venv`
 - executor 初始化后：在 `registry/executors.yaml` 登记本机 → 将签发的 token 写入 `~/executor/.env` 的 `EXECUTOR_TOKEN` → 启动 executor 服务
 - 密钥只进 `.env`（600 权限），不进 bashrc、不进 Git

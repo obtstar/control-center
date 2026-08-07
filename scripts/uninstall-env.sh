@@ -4,6 +4,7 @@
 set -uo pipefail
 
 BASE_HOME="${BASE_HOME:-$HOME}"
+OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
 EXECUTOR=0
 ASSUME_YES=0
 
@@ -11,16 +12,18 @@ usage() {
   cat <<EOF
 用法: $0 [选项]
   --home DIR     基础 home 目录（默认: \$HOME）
-  --executor     执行节点模式（仅卸载 executor 产物）
+  --owner NAME   工作用户（默认: dev，与安装时 --owner 一致）
+  --executor     执行节点模式（仅卸载 executor 产物，仅删 agent 用户）
   --yes          全部确认（非交互，慎用）
   -h, --help     显示帮助
-逐项提示删除：compose 容器 → 目录/配置 → bashrc 挂载 → agent 用户。
+逐项提示删除：compose 容器 → 目录/配置 → bashrc 挂载 → 用户（agent + 工作用户）。
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --home) BASE_HOME="$2"; shift 2 ;;
+    --owner) OWNER="$2"; shift 2 ;;
     --executor) EXECUTOR=1; shift ;;
     --yes) ASSUME_YES=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -87,6 +90,8 @@ rm_path "$BASE_HOME/control.env" " 环境变量配置"
 rm_path "$BASE_HOME/.venv"       " Python 虚拟环境"
 rm_path "$BASE_HOME/.pi"         " pi 配置（models.json、skills 软链）"
 rm_path "$BASE_HOME/.agent"      " agent 配置目录（executor 工具链）"
+rm_path "$BASE_HOME/.nvm"        " nvm（用户级 Node.js）"
+rm_path "$BASE_HOME/.sdkman"     " SDKMAN!（用户级 Java/Maven）"
 
 # ── 2. bashrc 挂载行 ──────────────────────────────────────────
 bashrc="$BASE_HOME/.bashrc"
@@ -97,14 +102,27 @@ if [[ -f "$bashrc" ]] && grep -qF 'source ~/control.env' "$bashrc"; then
   fi
 fi
 
-# ── 3. agent 用户 ─────────────────────────────────────────────
-if id agent &>/dev/null; then
+# ── 3. 用户（agent + 工作用户）────────────────────────────────
+del_user() { # $1=用户名
+  id "$1" &>/dev/null || { log "用户不存在，跳过: $1"; return 0; }
   if [[ $EUID -ne 0 ]]; then
-    warn "非 root，跳过删除 agent 用户（可用 sudo 重试）"
-  elif confirm "删除 Linux 用户 agent？"; then
-    userdel agent 2>/dev/null && log "已删除用户 agent" \
-      || warn "userdel 失败（可能有进程占用）：请手动检查"
+    warn "非 root，跳过删除用户: $1（可用 sudo 重试）"
+    return 0
   fi
-fi
+  local home
+  home=$(getent passwd "$1" | cut -d: -f6)
+  if confirm "删除用户 $1（home: $home；仅当由 init-env.sh 创建时才确认）？"; then
+    # home 即本次环境基目录时连 home 一起删，否则仅删用户
+    if [[ -n "$home" && "$home" == "$BASE_HOME" ]]; then
+      userdel -r "$1" 2>/dev/null || userdel "$1" 2>/dev/null || true
+    else
+      userdel "$1" 2>/dev/null || true
+    fi
+    id "$1" &>/dev/null && warn "删除失败（可能有进程占用）: $1" || log "已删除用户: $1"
+  fi
+}
+
+[[ $EXECUTOR -eq 0 ]] && del_user "$OWNER"   # 工作用户（默认 dev）
+del_user agent
 
 log "完成。未确认的项均已保留。"

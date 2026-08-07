@@ -5,7 +5,8 @@
 #       docs/architecture/10-deployment.md（docker-compose 测试环境）
 set -euo pipefail
 
-BASE_HOME="${BASE_HOME:-$HOME}"
+if [[ -n "${BASE_HOME:-}" ]]; then HOME_SET=1; else HOME_SET=0; BASE_HOME="$HOME"; fi
+OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
 SKIP_USERS=0
 SKIP_COMPOSE=0
 SKIP_REPOS=0
@@ -13,7 +14,8 @@ SKIP_REPOS=0
 usage() {
   cat <<EOF
 用法: $0 [选项]
-  --home DIR        基础 home 目录（默认: \$HOME）
+  --home DIR        基础 home 目录（默认: 工作用户的 home，非 root 时为 \$HOME）
+  --owner NAME      工作用户（默认: dev；root 运行且不存在时自动创建）
   --executor        执行节点模式：仅初始化本机为 executor（办公 PC 的 WSL），
                     连接编排节点取代码、本地执行、结果回传（见 10 章 executor 代理）
   --control-api URL 编排节点 control-api 地址（executor 模式使用，
@@ -45,7 +47,8 @@ LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --home) BASE_HOME="$2"; shift 2 ;;
+    --home) BASE_HOME="$2"; HOME_SET=1; shift 2 ;;
+    --owner) OWNER="$2"; shift 2 ;;
     --executor) EXECUTOR=1; shift ;;
     --control-api) CONTROL_API="$2"; shift 2 ;;
     --skip-users) SKIP_USERS=1; shift ;;
@@ -176,15 +179,11 @@ init_users() {
     return 0
   fi
 
-  # 单人模型：owner = 当前实际用户；Agent 统一一个 agent 账号（本机 + 执行节点通用）
+  # 单人模型：owner = 工作用户（默认 dev，--owner 自定义，root 时自动创建）
+  # Agent 统一一个 agent 账号（本机 + 执行节点通用）
   # 代码/Worktree 全部在 owner home 下；agent 仅保留极简配置目录 $BASE_HOME/.agent
-  local owner ogroup
-  owner="${SUDO_USER:-$(logname 2>/dev/null || true)}"
-  if [[ -z "$owner" ]]; then
-    echo "无法确定实际用户（SUDO_USER/logname 均不可用），请以 sudo 方式运行" >&2
-    exit 1
-  fi
-  ogroup="$(id -gn "$owner")"
+  local ogroup
+  ogroup="$(id -gn "$OWNER")"
 
   if ! id agent &>/dev/null; then
     useradd -M -d "$BASE_HOME/.agent" -s /usr/sbin/nologin agent
@@ -199,12 +198,95 @@ init_users() {
   chgrp -R "$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" 2>/dev/null || true
 
   # 目录属主（16.3）：owner 拥有控制面，agent 独占 ~/wt
-  chown -R "$owner:$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" \
+  chown -R "$OWNER:$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" \
     "$BASE_HOME/data" "$BASE_HOME/logs" 2>/dev/null || true
   chown -R "agent:$ogroup" "$BASE_HOME/wt"
   chmod 770 "$BASE_HOME/wt"
-  log "目录属主: owner=$owner（control-center/repos/data/logs），agent（wt，配置目录 .agent）"
+  log "目录属主: owner=$OWNER（control-center/repos/data/logs），agent（wt，配置目录 .agent）"
   # 16.5：agent 用户不在 sudoers 中，无需写 sudoers 规则
+}
+
+# ── 2.5 可选语言/框架（用户级安装，交互确认，回车默认 N 跳过）─
+# 全部落在工作用户 home：Java/Maven→SDKMAN!，Node→nvm，pnpm→corepack；
+# root 运行时 su 到工作用户执行，不污染 /root 与系统目录
+confirm_opt() { # 非交互默认跳过
+  [[ -t 0 ]] || return 1
+  local ans
+  read -rp "$1 [y/N] " ans
+  [[ "$ans" =~ ^[yY](es)?$ ]]
+}
+
+as_target_user() { # 以工作用户身份执行（root 时 su 到 $OWNER）
+  if [[ $EUID -eq 0 ]] && [[ "$OWNER" != "root" ]] && id "$OWNER" &>/dev/null; then
+    su - "$OWNER" -c "$1"
+  else
+    bash -lc "$1"
+  fi
+}
+
+try_install() { # $1=名称 $2=检测命令 $3=安装命令（用户级）
+  local name="$1" check="$2" cmd="$3"
+  if [[ -n "$check" ]] && as_target_user "command -v $check" &>/dev/null; then
+    log "$name 已安装，跳过"
+    return 0
+  fi
+  if confirm_opt "安装 $name？"; then
+    log "安装 $name（用户级）..."
+    as_target_user "$cmd" && log "$name 安装完成" \
+      || warn "$name 安装失败（可稍后以工作用户身份手动安装）"
+  else
+    log "跳过: $name"
+  fi
+}
+
+init_toolchain() {
+  [[ $SKIP_TOOLING -eq 1 ]] && { log "--skip-tooling，跳过语言/框架安装"; return 0; }
+  log "可选语言/框架安装（用户级，回车默认跳过，非交互模式全部跳过）"
+  try_install "Java + Maven（SDKMAN!）" java \
+    'curl -fsSL https://get.sdkman.io | bash \
+      && sed -i "s/sdkman_auto_answer=false/sdkman_auto_answer=true/" "$HOME/.sdkman/etc/config" \
+      && source "$HOME/.sdkman/bin/sdkman-init.sh" \
+      && sdk install java && sdk install maven'
+  try_install "Node.js LTS（nvm）" node \
+    'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash \
+      && source "$HOME/.nvm/nvm.sh" && nvm install --lts'
+  try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
+    'source "$HOME/.nvm/nvm.sh" 2>/dev/null \
+      && corepack enable && corepack prepare pnpm@latest --activate'
+  if as_target_user 'command -v docker' &>/dev/null; then
+    try_install "Docker rootless 模式（用户级守护进程）" "" \
+      'dockerd-rootless-setuptool.sh install'
+  else
+    log "Docker 未安装：需系统级安装（apt install docker.io），跳过"
+  fi
+}
+
+# ── 2.6 国内镜像加速（交互选择，默认 Y）──────────────────────
+init_mirrors() {
+  [[ -t 0 ]] || { log "非交互模式，跳过国内镜像配置"; return 0; }
+  local ans
+  read -rp "配置国内镜像加速（npm→npmmirror、pip→清华）？[Y/n] " ans
+  [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
+
+  # npm：npmmirror（用户级，需已装 npm）
+  if as_target_user 'command -v npm' &>/dev/null; then
+    as_target_user 'npm config set registry https://registry.npmmirror.com' \
+      && log "npm 镜像: https://registry.npmmirror.com（用户级 npm config）"
+  else
+    warn "npm 未安装，跳过 npm 镜像（安装 Node 后可手动执行: npm config set registry https://registry.npmmirror.com）"
+  fi
+
+  # pip：清华镜像（写工作用户的 pip.conf）
+  local pip_conf="$BASE_HOME/.config/pip"
+  mkdir -p "$pip_conf"
+  cat > "$pip_conf/pip.conf" <<'EOF'
+[global]
+index-url = https://pypi.tuna.tsinghua.edu.cn/simple
+trusted-host = pypi.tuna.tsinghua.edu.cn
+timeout = 30
+EOF
+  [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$pip_conf"
+  log "pip 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$pip_conf/pip.conf）"
 }
 
 # ── 3. 环境变量配置 ───────────────────────────────────────────
@@ -227,11 +309,8 @@ export LITELLM_ENDPOINT="$LITELLM_ENDPOINT"
 # export PIP_INDEX_URL=      # pip 内网镜像，如 http://pypi.internal/simple
 EOF
   chmod 600 "$env_file"
-  # root(sudo) 运行时归属实际用户，否则 600 权限下 owner 无法 source
-  if [[ $EUID -eq 0 ]]; then
-    local owner="${SUDO_USER:-$(logname 2>/dev/null || true)}"
-    [[ -n "$owner" ]] && chown "$owner:$(id -gn "$owner")" "$env_file"
-  fi
+  # root(sudo) 运行时归属工作用户，否则 600 权限下 owner 无法 source
+  [[ $EUID -eq 0 ]] && chown "$OWNER:$(id -gn "$OWNER")" "$env_file"
   fi
 
   # bashrc 幂等挂载
@@ -264,7 +343,8 @@ init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
         && log "已安装 control-center/requirements.txt"
     fi
   fi
-  if [[ -n "$user" ]] && id "$user" &>/dev/null; then
+  if [[ -n "$user" ]] && id "$user" &>/dev/null \
+     && { [[ $EUID -eq 0 ]] || [[ "$user" == "$(id -un)" ]]; }; then
     chown -R "$user:$user" "$home/.venv"
   fi
 }
@@ -327,9 +407,15 @@ init_repo_skeleton() { # $1=repo 名
   [[ -d "$repo/.git" ]] && { log "仓库已存在，跳过: $1"; return 0; }
 
   # 远程已有内容则克隆（新机器接入）；远程为空/未配置则本地初始化骨架
-  local remote="" refs=""
+  local remote="" refs="" rc=0
   [[ -n "${GIT_REMOTE_BASE:-}" ]] && remote="$GIT_REMOTE_BASE/$1.git"
-  [[ -n "$remote" ]] && refs="$(git ls-remote "$remote" 2>/dev/null || true)"
+  if [[ -n "$remote" ]]; then
+    refs="$(git ls-remote "$remote" 2>/dev/null)" || rc=$?
+    if [[ $rc -ne 0 ]]; then
+      warn "远程不可达或无权限，跳过: $remote"
+      return 0
+    fi
+  fi
   if [[ -n "$refs" ]]; then
     if [[ -n "$(ls -A "$repo" 2>/dev/null || true)" ]]; then
       warn "目录非空且无 .git，跳过克隆: $repo"
@@ -407,10 +493,9 @@ init_repos() {
   for r in control-api control-web control-db; do
     init_repo_skeleton "$r"
   done
-  # root(sudo) 运行时把新建仓库归属实际用户（16.3 权限模型）
+  # root(sudo) 运行时把新建仓库归属工作用户（16.3 权限模型）
   if [[ $EUID -eq 0 ]]; then
-    local owner="${SUDO_USER:-$(logname 2>/dev/null || true)}"
-    [[ -n "$owner" ]] && chown -R "$owner:$(id -gn "$owner")" "$BASE_HOME/repos"
+    chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos"
   fi
 }
 
@@ -509,6 +594,8 @@ init_executor() {
   fi
 
   log "初始化执行节点（executor）: $BASE_HOME/executor"
+  init_toolchain
+  init_mirrors
   mkdir -p "$BASE_HOME/executor"/{workspace,cache,logs}
   chmod 750 "$BASE_HOME/executor"
 
@@ -573,6 +660,16 @@ if [[ $CHECK_ONLY -eq 1 ]]; then
   exit 0
 fi
 
+# 编排节点 + root：确保工作用户存在（默认 dev，--owner 自定义）；
+# 未显式 --home 时以工作用户的 home 为基目录（避免 sudo 后落到 /root）
+if [[ $EXECUTOR -eq 0 && $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
+  if ! id "$OWNER" &>/dev/null; then
+    useradd -m -s /bin/bash "$OWNER"
+    log "创建工作用户: $OWNER（home: $(getent passwd "$OWNER" | cut -d: -f6)）"
+  fi
+  [[ $HOME_SET -eq 0 ]] && BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
+fi
+
 check_pre
 if [[ $EXECUTOR -eq 1 ]]; then
   init_executor
@@ -581,8 +678,9 @@ if [[ $EXECUTOR -eq 1 ]]; then
 else
   init_dirs
   [[ $SKIP_USERS -eq 1 ]]   || init_users
+  init_toolchain
+  init_mirrors
   init_env_config
-  OWNER="${SUDO_USER:-$(logname 2>/dev/null || id -un)}"
   init_venv "$BASE_HOME" "$OWNER"
   if [[ $SKIP_TOOLING -eq 0 ]]; then
     install_agent_tooling "$BASE_HOME" "$OWNER"          # 人工通道（VSCode/CLI）
