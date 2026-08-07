@@ -50,6 +50,8 @@ LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 # uv 镜像（uv venv/pip 使用）
 export UV_INDEX_URL="${UV_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+# GitHub 加速代理前缀（如 https://gh.dpik.top），作用于 nvm/uv 安装器下载
+GH_PROXY="${GH_PROXY:-}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --owner) OWNER="$2"; OWNER_SET=1; shift 2 ;;
@@ -362,6 +364,35 @@ try_install() { # $1=名称 $2=检测命令 $3=安装命令 $4=升级命令（�
 init_toolchain() {
   [[ $SKIP_TOOLING -eq 1 ]] && { log "--skip-tooling，跳过语言/框架安装"; return 0; }
   log "可选语言/框架安装（用户级，回车默认跳过，非交互模式全部跳过）"
+
+  # SDKMAN! 依赖 unzip/zip（系统级，按发行版包管理器安装）
+  local missing=()
+  command -v unzip &>/dev/null || missing+=(unzip)
+  command -v zip &>/dev/null || missing+=(zip)
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    if [[ $EUID -eq 0 ]]; then
+      log "安装系统依赖: ${missing[*]}"
+      if command -v apt-get &>/dev/null; then
+        apt-get update -qq && apt-get install -y -qq "${missing[@]}"
+      elif command -v pacman &>/dev/null; then
+        pacman -Sy --noconfirm --needed "${missing[@]}"
+      elif command -v dnf &>/dev/null; then
+        dnf install -y "${missing[@]}"
+      else
+        warn "无法识别包管理器，请手动安装: ${missing[*]}"
+      fi
+    else
+      warn "缺少系统依赖: ${missing[*]}（需 root 安装，如 pacman -S unzip zip）"
+    fi
+  fi
+
+  # 下载命令按 GH_PROXY / npmmirror 构造
+  local nvm_url="${GH_PROXY:+$GH_PROXY/}https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
+  local node_mirror='export NVM_NODEJS_ORG_MIRROR="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}";'
+  local uv_cmd='curl -fsSL https://astral.sh/uv/install.sh | sh'
+  [[ -n "$GH_PROXY" ]] && uv_cmd="curl -fsSL https://astral.sh/uv/install.sh \
+    | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com/astral-sh/uv/releases' sh"
+
   try_install "Java + Maven（SDKMAN!）" java \
     'curl -fsSL https://get.sdkman.io | bash \
       && sed -i "s/sdkman_auto_answer=false/sdkman_auto_answer=true/" "$HOME/.sdkman/etc/config" \
@@ -369,11 +400,10 @@ init_toolchain() {
       && sdk install java && sdk install maven' \
     'source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk upgrade java && sdk upgrade maven'
   try_install "Node.js LTS（nvm）" node \
-    'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash \
-      && source "$HOME/.nvm/nvm.sh" && nvm install --lts' \
-    'source "$HOME/.nvm/nvm.sh" && nvm install --lts --reinstall-packages-from=current'
-  try_install "uv（Python 版本/包管理）" uv \
-    'curl -fsSL https://astral.sh/uv/install.sh | sh' \
+    "$node_mirror curl -fsSL $nvm_url | bash \
+      && source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts" \
+    "$node_mirror source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts --reinstall-packages-from=current"
+  try_install "uv（Python 版本/包管理）" uv "$uv_cmd" \
     'export PATH="$HOME/.local/bin:$PATH"; uv self update'
   try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
     'source "$HOME/.nvm/nvm.sh" 2>/dev/null \
@@ -391,8 +421,11 @@ init_toolchain() {
 init_mirrors() {
   has_tty || { log "非交互模式，跳过国内镜像配置"; return 0; }
   local ans
-  read -rp "配置国内镜像加速（npm→npmmirror、pip→清华）？[Y/n] " ans </dev/tty
+  read -rp "配置国内镜像加速（npm→npmmirror、pip/uv→清华）？[Y/n] " ans </dev/tty
   [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
+
+  read -rp "GitHub 加速代理前缀（如 https://gh.dpik.top，留空直连）: " ans </dev/tty
+  [[ -n "$ans" ]] && { GH_PROXY="$ans"; log "GitHub 代理: $GH_PROXY（作用于后续 nvm/uv 安装器下载）"; }
 
   # npm：npmmirror（用户级，需已装 npm）
   if as_target_user 'command -v npm' &>/dev/null; then
@@ -848,8 +881,8 @@ if [[ $EXECUTOR -eq 1 ]]; then
 else
   step_enabled "目录结构" 0 && init_dirs
   step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
-  step_enabled "语言/框架工具链（SDKMAN!/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_mirrors
+  step_enabled "语言/框架工具链（SDKMAN!/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_env_config
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
   if step_enabled "pi / openskills（Agent 工具链）" "$SKIP_TOOLING"; then

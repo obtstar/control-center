@@ -58,7 +58,7 @@ tty 交互运行时依次询问：**工作用户**（默认 dev）→ **节点�
 Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、Docker rootless（需已装 docker）。
 全部落在工作用户 home，不污染系统目录。`.venv` 由 `uv venv` 创建。
 
-随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）、uv→清华（`~/.config/uv/uv.toml`）。
+随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）、uv→清华（`~/.config/uv/uv.toml`）；并可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`），作用于 nvm/uv 安装器下载（nvm 的 Node 二进制固定走 `npmmirror.com/mirrors/node`）。
 
 ### 环境变量
 
@@ -69,6 +69,8 @@ Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Pyt
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
 | `GIT_REMOTE_BASE` | 仓库远程地址全量前缀：远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev |
 | `GIT_PROTO` / `GIT_REMOTE_HOST` | 未设 `GIT_REMOTE_BASE` 时按协议构造前缀：`ssh`→`git@HOST`、`http`→`https://HOST`（HOST 默认 `github.com/obtstar`）；交互运行时会提示 1) ssh / 2) http 二选一 |
+| `GH_PROXY` | GitHub 加速代理前缀（如 `https://gh.dpik.top`），nvm/uv 安装器下载走代理；交互镜像确认时也可输入 |
+| `NVM_NODEJS_ORG_MIRROR` | nvm 下载 Node 的镜像（默认 `https://npmmirror.com/mirrors/node`） |
 
 ### 远程校验命令
 
