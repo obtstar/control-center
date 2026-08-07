@@ -12,30 +12,36 @@ Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本�
 | `scripts/` | 环境初始化脚本 `init-env.sh`、卸载脚本 `uninstall-env.sh` |
 | `control-center.code-workspace` | VS Code 多根目录工作区（control-center + 平台仓库 + Worktree 根），WSL 中用 `code control-center.code-workspace` 打开 |
 
-## 环境初始化脚本（scripts/init-env.sh）
+## 环境初始化（两阶段）
 
-### 使用
+### 阶段一：init-env.sh（引导，需 root）
+
+只做三件事：**环境校验 → 创建工作用户（dev/agent）→ 克隆 control-center 本工程**，并植入首次登录钩子：
 
 ```bash
-# 编排节点初始化（第一台，交互式；-E 保留 GIT_PROTO 等环境变量与 SSH agent）
-sudo -E bash scripts/init-env.sh
+# 编排节点（第一台）
+curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | sudo bash -s --
 
-# 执行节点初始化（后续办公 PC）
-sudo -E bash scripts/init-env.sh --executor
+# 执行节点（办公 PC）
+... | sudo bash -s -- --executor
 
-# 环境校验（不初始化，非 root 也可用）
+# 仅环境校验（不初始化，非 root 也可用）
 bash scripts/init-env.sh --check
-
-# 卸载（逐项确认）
-sudo bash scripts/uninstall-env.sh
 ```
 
-两种模式：
+### 阶段二：setup-env.sh（安装，工作用户身份，无需 root）
 
-| 模式 | 用途 | 命令 |
-|-----|------|------|
-| 编排节点（第一台） | 目录结构、Linux 用户、venv、pi/openskills、仓库克隆/骨架、compose 测试环境 | `sudo -E bash scripts/init-env.sh` |
-| 执行节点（后续 PC） | executor 工作区、`agent` 账号、工具链 | `sudo -E bash scripts/init-env.sh --executor`（交互询问服务端地址） |
+**首次以 dev 登录时自动触发**（bashrc 钩子，完成后标记 `~/.control-setup-done`），也可随时手动重跑：
+
+```bash
+bash ~/control-center/scripts/setup-env.sh              # 全量：镜像/仓库同步/工具链/PieKBS/pi/compose
+bash ~/control-center/scripts/setup-env.sh --executor   # 执行节点分支
+bash ~/control-center/scripts/setup-env.sh --check      # 仅校验
+```
+
+模块结构：`scripts/lib/{common,check,mirrors,repos,toolchain,piekbs,agent,compose,executor}.sh`（入口与各模块均 <300 行）。仓库同步由 **`registry/repos.yaml` 清单驱动**（control-center 仅 pull，control-api/web/db 克隆或骨架，piekbs 顶级目录，control-wiki 由 PieKBS 步骤管理）。
+
+### 卸载（scripts/uninstall-env.sh）
 
 ### 交互式流程
 

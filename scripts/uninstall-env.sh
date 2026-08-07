@@ -110,14 +110,18 @@ rm_path "$BASE_HOME/.local/bin/uvx" " uvx"
 rm_path "$BASE_HOME/.cache/uv"   " uv 缓存"
 rm_path "$BASE_HOME/.config/uv"  " uv 镜像配置"
 
-# ── 2. bashrc 挂载行 ──────────────────────────────────────────
+# ── 2. bashrc 挂载行与阶段二钩子 ──────────────────────────────
 bashrc="$BASE_HOME/.bashrc"
-if [[ -f "$bashrc" ]] && grep -qF 'source ~/control.env' "$bashrc"; then
-  if confirm "移除 $bashrc 中的 control.env 挂载行？"; then
-    sed -i.uninstall-bak '\#source ~/control.env#d' "$bashrc" \
-      && log "已移除 bashrc 挂载行（备份: $bashrc.uninstall-bak）"
+if [[ -f "$bashrc" ]]; then
+  if grep -qE 'control\.env|control-setup-done' "$bashrc"; then
+    if confirm "移除 $bashrc 中的 control.env 挂载与阶段二钩子？"; then
+      sed -i.uninstall-bak -e '\#source ~/control.env#d' \
+        -e '/# control-center 阶段二/,/^fi$/d' "$bashrc" \
+        && log "已移除 bashrc 挂载与钩子（备份: $bashrc.uninstall-bak）"
+    fi
   fi
 fi
+rm_path "$BASE_HOME/.control-setup-done" " 阶段二完成标记"
 
 # ── 3. 用户（agent + 工作用户）────────────────────────────────
 del_user() { # $1=用户名

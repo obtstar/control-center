@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# toolchain.sh — 由 setup-env.sh source（依赖 common.sh）
+
+try_install() { # $1=名称 $2=检测命令 $3=安装命令 $4=升级命令（可选）
+  local name="$1" check="$2" cmd="$3" upcmd="${4:-}"
+  if [[ -n "$check" ]] && as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; command -v $check" &>/dev/null; then
+    if [[ -n "$upcmd" ]] && confirm_opt "$name 已安装，是否升级？"; then
+      log "升级 $name ..."
+      as_target_user "$upcmd" && log "$name 升级完成" || warn "$name 升级失败（保留现有版本）"
+    else
+      log "$name 已安装，跳过"
+    fi
+    return 0
+  fi
+  if confirm_opt "安装 $name？"; then
+    log "安装 $name（用户级）..."
+    as_target_user "$cmd" && log "$name 安装完成" \
+      || warn "$name 安装失败（可稍后以工作用户身份手动安装）"
+  else
+    log "跳过: $name"
+  fi
+}
+
+init_toolchain() {
+  [[ $SKIP_TOOLING -eq 1 ]] && { log "--skip-tooling，跳过语言/框架安装"; return 0; }
+  log "可选语言/框架安装（用户级，回车默认跳过，非交互模式全部跳过）"
+
+  # 下载命令按 GH_PROXY / npmmirror 构造
+  local nvm_url="${GH_PROXY:+$GH_PROXY/}https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
+  local node_mirror='export NVM_NODEJS_ORG_MIRROR="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}";'
+  # uv：安装脚本直连 astral.sh（gh 代理不支持），仅 GitHub 二进制下载走代理；
+  # pipefail 防止 curl 失败但管道返回 0 的假成功
+  local uv_cmd='set -o pipefail; curl -fsSL https://astral.sh/uv/install.sh | sh'
+  [[ -n "$GH_PROXY" ]] && uv_cmd="set -o pipefail; curl -fsSL https://astral.sh/uv/install.sh \
+    | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com' sh"
+
+  # Java + Maven：清华镜像直装脚本（SDKMAN 无国内镜像，弃用）
+  local jm_script="$BASE_HOME/scripts/install-java-maven.sh"
+  mkdir -p "$BASE_HOME/scripts"
+  cat > "$jm_script" <<'EOF'
+#!/usr/bin/env bash
+# Temurin JDK 17 + Maven 清华镜像直装（用户级，落 ~/.local）
+set -e
+base=https://mirrors.tuna.tsinghua.edu.cn
+dest="$HOME/.local/lib"
+mkdir -p "$dest" "$HOME/.local/bin"
+
+jdk_file=$(curl -fsSL "$base/Adoptium/17/jdk/x64/linux/" \
+  | grep -oP 'OpenJDK17U-jdk_x64_linux_hotspot_[^"]+\.tar\.gz' \
+  | grep -v sha256 | sort -V | tail -1)
+[[ -n "$jdk_file" ]] || { echo "未找到 JDK 包" >&2; exit 1; }
+echo "下载 $jdk_file"
+curl -fsSL "$base/Adoptium/17/jdk/x64/linux/$jdk_file" -o /tmp/jdk17.tgz
+tar -xzf /tmp/jdk17.tgz -C "$dest" && rm -f /tmp/jdk17.tgz
+jdk_dir=$(find "$dest" -maxdepth 1 -name 'jdk-17*' -type d | sort -V | tail -1)
+ln -sfn "$jdk_dir" "$dest/jdk17"
+ln -sfn "$dest/jdk17/bin/java" "$HOME/.local/bin/java"
+ln -sfn "$dest/jdk17/bin/javac" "$HOME/.local/bin/javac"
+
+mvn_ver=$(curl -fsSL "$base/apache/maven/maven-3/" \
+  | grep -oP '(?<=href=")3\.[0-9.]+(?=/)' | sort -V | tail -1)
+[[ -n "$mvn_ver" ]] || { echo "未找到 Maven 版本" >&2; exit 1; }
+echo "下载 apache-maven-$mvn_ver"
+curl -fsSL "$base/apache/maven/maven-3/$mvn_ver/binaries/apache-maven-$mvn_ver-bin.tar.gz" -o /tmp/maven.tgz
+tar -xzf /tmp/maven.tgz -C "$dest" && rm -f /tmp/maven.tgz
+ln -sfn "$dest/apache-maven-$mvn_ver" "$dest/maven"
+ln -sfn "$dest/maven/bin/mvn" "$HOME/.local/bin/mvn"
+
+grep -q JAVA_HOME "$HOME/.bashrc" 2>/dev/null \
+  || echo 'export JAVA_HOME="$HOME/.local/lib/jdk17"' >> "$HOME/.bashrc"
+echo "完成: JAVA_HOME=$dest/jdk17, maven=$dest/maven"
+EOF
+  chmod +x "$jm_script"
+  own "$jm_script"
+
+  try_install "Java + Maven（清华镜像 Temurin 17 + Maven）" java \
+    "bash '$jm_script'" "bash '$jm_script'"
+  try_install "Node.js LTS（nvm）" node \
+    "$node_mirror curl -fsSL $nvm_url | bash \
+      && source \"\$HOME/.nvm/nvm.sh\" \
+      && echo '下载 Node LTS（npmmirror，非 tty 下无进度条，请稍候）...' \
+      && nvm install --lts" \
+    "$node_mirror source \"\$HOME/.nvm/nvm.sh\" \
+      && echo '下载 Node LTS（npmmirror，非 tty 下无进度条，请稍候）...' \
+      && nvm install --lts"
+  try_install "uv（Python 版本/包管理）" uv "$uv_cmd" "$uv_cmd"
+  try_install "Go（golang.google.cn 用户级）" go \
+    'set -e
+     ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
+     [[ -n "$ver" ]] || { echo "未获取到 Go 版本" >&2; exit 1; }
+     arch=$(uname -m); [[ "$arch" == "aarch64" ]] && arch=arm64 || arch=amd64
+     echo "下载 $ver ($arch)"
+     mkdir -p "$HOME/.local/lib" "$HOME/.local/bin"
+     curl -fsSL "https://golang.google.cn/dl/$ver.linux-$arch.tar.gz" -o /tmp/go.tgz
+     rm -rf "$HOME/.local/lib/go" && tar -xzf /tmp/go.tgz -C "$HOME/.local/lib" && rm -f /tmp/go.tgz
+     ln -sfn "$HOME/.local/lib/go/bin/go" "$HOME/.local/bin/go"
+     ln -sfn "$HOME/.local/lib/go/bin/gofmt" "$HOME/.local/bin/gofmt"
+     mkdir -p "$HOME/.config/go"
+     go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn' \
+    'set -e
+     ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
+     [[ -n "$ver" ]] || exit 1
+     arch=$(uname -m); [[ "$arch" == "aarch64" ]] && arch=arm64 || arch=amd64
+     curl -fsSL "https://golang.google.cn/dl/$ver.linux-$arch.tar.gz" -o /tmp/go.tgz
+     rm -rf "$HOME/.local/lib/go" && tar -xzf /tmp/go.tgz -C "$HOME/.local/lib" && rm -f /tmp/go.tgz'
+  try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
+    'export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-https://registry.npmmirror.com}"; \
+      source "$HOME/.nvm/nvm.sh" 2>/dev/null \
+      && corepack enable && corepack prepare pnpm@latest --activate' \
+    'export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-https://registry.npmmirror.com}"; \
+      source "$HOME/.nvm/nvm.sh" 2>/dev/null && corepack prepare pnpm@latest --activate'
+  if as_target_user 'command -v docker' &>/dev/null; then
+    try_install "Docker rootless 模式（用户级守护进程）" "" \
+      'dockerd-rootless-setuptool.sh install'
+  else
+    log "Docker 未安装：需系统级安装（apt install docker.io），跳过"
+  fi
+}
+
+init_env_config() {
+  local env_file="$BASE_HOME/control.env"
+  if [[ -f "$env_file" ]] && ! confirm_overwrite "$env_file"; then
+    log "保留已有配置: $env_file"
+  else
+  log "写入环境变量配置: $env_file"
+  cat > "$env_file" <<EOF
+# control.env — Agent 平台环境变量（13/15 章），由 init-env.sh 生成
+export CONTROL_HOME="$BASE_HOME/control-center"
+export REPOS_ROOT="$BASE_HOME/repos"
+export WORKTREE_ROOT="$BASE_HOME/wt"
+export CONTROL_DATA="$BASE_HOME/data"
+export CONTROL_LOGS="$BASE_HOME/logs"
+export LITELLM_ENDPOINT="$LITELLM_ENDPOINT"
+# export LITELLM_API_KEY=    # 密钥不落盘，按需填入或经密钥管理注入
+# export NPM_REGISTRY=       # npm 内网镜像，如 http://npm.internal:4873
+# export PIP_INDEX_URL=      # pip 内网镜像，如 http://pypi.internal/simple
+EOF
+  chmod 600 "$env_file"
+  # root(sudo) 运行时归属工作用户，否则 600 权限下 owner 无法 source
+  own "$env_file"
+  fi
+
+  # bashrc 幂等挂载
+  local bashrc="$BASE_HOME/.bashrc"
+  if [[ -w "$BASE_HOME" ]]; then
+    grep -qF "control.env" "$bashrc" 2>/dev/null || \
+      echo '[[ -f ~/control.env ]] && source ~/control.env' >> "$bashrc"
+  fi
+}
+
+# ── 4. Python 虚拟环境（uv 管理）──────────────────────────────
+init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
+  local home="$1" user="${2:-}"
+  if [[ -d "$home/.venv" ]]; then
+    log "虚拟环境已存在，跳过: $home/.venv"
+  elif as_target_user 'export PATH="$HOME/.local/bin:$PATH"; command -v uv' &>/dev/null; then
+    log "创建 Python 虚拟环境（uv）: $home/.venv"
+    if as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; uv venv --seed '$home/.venv'"; then
+      if [[ -f "$home/control-center/requirements.txt" ]]; then
+        as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; uv pip install --python '$home/.venv/bin/python' -q -r '$home/control-center/requirements.txt'" \
+          && log "已安装 control-center/requirements.txt"
+      fi
+    else
+      warn "uv venv 失败（网络受限？），跳过"
+    fi
+  else
+    warn "uv 未安装，跳过 .venv 创建（工具链步骤选择安装 uv，或: curl -fsSL https://astral.sh/uv/install.sh | sh）"
+  fi
+  if [[ -d "$home/.venv" && -n "$user" ]] && id "$user" &>/dev/null \
+     && { [[ $EUID -eq 0 ]] || [[ "$user" == "$(id -un)" ]]; }; then
+    chown -R "$user:$user" "$home/.venv"
+  fi
+}
+
+# ── 5. pi / openskills 安装与配置 ─────────────────────────────
