@@ -4,6 +4,8 @@
 authority:
   grounding: required           # 有据可依：产出必须引用 KB 依据（文档 ID+段落）
   on_no_basis: pause            # 检索不到依据 → 暂停并说明缺失项，禁止自行发挥
+  doc_write: human_only         # L1-L3 权柄文档 AI 零写权限（人指令也不破例，
+                                # AI 仅可输出建议稿并暂停提示人亲自修改）
   consistency_check:            # 逐级权柄校验，冲突即暂停
     design: L1
     coding: L3
