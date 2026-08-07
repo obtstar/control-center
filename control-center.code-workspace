@@ -17,6 +17,14 @@
       "path": "../repos/control-db"
     },
     {
+      "name": "piekbs（源码）",
+      "path": "../piekbs"
+    },
+    {
+      "name": "piekbs-kb（知识库）",
+      "path": "../piekbs-kb"
+    },
+    {
       "name": "wt（任务 Worktree）",
       "path": "../wt"
     }

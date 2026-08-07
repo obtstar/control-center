@@ -789,7 +789,7 @@ init_control_center() {
 init_repos() {
   command -v git >/dev/null || { warn "未安装 git，跳过仓库骨架"; return 0; }
   resolve_remote_base
-  for r in control-api control-web control-db piekbs; do
+  for r in control-api control-web control-db; do
     init_repo_skeleton "$r"
   done
   # root(sudo) 运行时把仓库归属工作用户（16.3 权限模型）
@@ -802,6 +802,15 @@ init_repos() {
 init_piekbs() {
   log "PieKBS 知识库（kb_search/kb_page/kb_add，MCP 接口）"
   local gh="${GH_PROXY:+$GH_PROXY/}"
+
+  # 0. 源码仓库：~/piekbs（与 control-center、piekbs-kb 同级，不放 ~/repos）
+  local src="$BASE_HOME/piekbs"
+  if [[ -d "$src/.git" ]]; then
+    update_repo "$src" piekbs
+  else
+    clone_remote piekbs "$src" \
+      || warn "piekbs 源码未克隆（可后续手动: git clone <remote> $src）"
+  fi
 
   # 1. 二进制：GitHub release（linux-amd64，经 GH_PROXY）
   if as_target_user "$USER_ENV command -v piekbs" &>/dev/null; then
@@ -1110,7 +1119,7 @@ else
   step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
   init_mirrors
   step_enabled "控制中心仓库（control-center 克隆）" "$SKIP_REPOS" && init_control_center
-  step_enabled "代码仓库（control-api/web/db/piekbs 克隆/骨架）" "$SKIP_REPOS" && init_repos
+  step_enabled "代码仓库（control-api/web/db 克隆/骨架）" "$SKIP_REPOS" && init_repos
   step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   step_enabled "PieKBS 知识库（二进制 + KB 初始化）" "$SKIP_TOOLING" && init_piekbs
   init_env_config
