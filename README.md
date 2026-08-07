@@ -60,6 +60,8 @@ Java+Maven（**清华镜像直装** Temurin 17 + Maven，落 `~/.local`，不依
 
 随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）、uv→清华（`~/.config/uv/uv.toml`）；并可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`），作用于 nvm/uv 安装器下载（nvm 的 Node 二进制固定走 `npmmirror.com/mirrors/node`）。
 
+pi 初始化时生成 `~/.pi/settings.json`：**访问范围限定工作用户 home**（`allow_paths`），`.ssh`/`.config`/`control.env`/`deploy/.env` 等敏感路径列入 `protected_paths`（16 章纵深防御）；并可选安装 **pi-di18n** 切换中文界面（`locale: zh-CN`）。
+
 ### 环境变量
 
 | 变量 | 说明 |

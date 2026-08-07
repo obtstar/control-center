@@ -566,6 +566,26 @@ EOF
     log "已生成 $home/.pi/models.json（LiteLLM 代理，别名 coding/cheap/heavy）"
   fi
 
+  # 5.2b pi 基本设置：访问范围限定工作用户 home，敏感路径保护（16 章纵深防御）
+  local settings="$home/.pi/settings.json"
+  if [[ ! -f "$settings" ]]; then
+    cat > "$settings" <<EOF
+{
+  "allow_paths": ["$BASE_HOME"],
+  "protected_paths": [
+    "/etc", "/root", "/boot",
+    "$BASE_HOME/.ssh",
+    "$BASE_HOME/.config",
+    "$BASE_HOME/control.env",
+    "$BASE_HOME/deploy/.env"
+  ],
+  "locale": "en"
+}
+EOF
+    chmod 600 "$settings"
+    log "已生成 $settings（访问范围限定 $BASE_HOME，敏感路径保护）"
+  fi
+
   # 5.3 openskills（07.3：SKILL.md 技能管理，同 pi 走工作用户用户级 npm）
   if as_target_user "$USER_ENV command -v openskills" &>/dev/null; then
     if confirm_opt "openskills 已安装，是否升级？"; then
@@ -583,6 +603,18 @@ EOF
   if [[ -d "$BASE_HOME/control-center/orchestration/skills" ]]; then
     ln -sfn "$BASE_HOME/control-center/orchestration/skills" "$home/.pi/skills"
     log "技能目录已链接: $home/.pi/skills → control-center/orchestration/skills"
+  fi
+
+  # 5.5 pi-di18n（中文界面，可选；仅人工通道询问一次）
+  if [[ "$home" == "$BASE_HOME" ]] \
+     && as_target_user "$USER_ENV command -v pi" &>/dev/null \
+     && confirm_opt "添加 pi-di18n 并切换中文界面？"; then
+    if as_target_user "$USER_ENV NPM_REGISTRY='$NPM_REGISTRY' pi install pi-di18n"; then
+      sed -i 's/"locale": "[^"]*"/"locale": "zh-CN"/' "$settings" 2>/dev/null || true
+      log "pi-di18n 已安装，locale=zh-CN"
+    else
+      warn "pi-di18n 安装失败（可稍后手动: pi install pi-di18n）"
+    fi
   fi
 
   # root 模式下把配置归属目标用户
