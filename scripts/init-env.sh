@@ -111,8 +111,14 @@ check_pre() {
   [[ -n "$avail" && "$avail" -ge 2048 ]] \
     && chk_pass "磁盘空间: ${avail}MB 可用" || chk_warn "磁盘空间不足 2GB（${avail:-未知}MB）"
 
-  [[ -w "$BASE_HOME" || ! -e "$BASE_HOME" ]] \
-    && chk_pass "目录可写: $BASE_HOME" || chk_fail "目录不可写: $BASE_HOME"
+  # 初始化以 root 身份执行，可写性以 root 为准；非 root 巡检仅检查存在性
+  if [[ $EUID -eq 0 ]]; then
+    [[ -w "$BASE_HOME" || ! -e "$BASE_HOME" ]] \
+      && chk_pass "目录可写: $BASE_HOME" || chk_fail "目录不可写: $BASE_HOME"
+  else
+    [[ -e "$BASE_HOME" ]] && chk_pass "目录存在: $BASE_HOME（写权限以 root 初始化为准）" \
+      || chk_warn "目录不存在: $BASE_HOME（初始化时创建）"
+  fi
 
   if command -v curl &>/dev/null; then
     curl -sf --max-time 5 -o /dev/null "$LITELLM_ENDPOINT/v1/models" \
@@ -126,6 +132,15 @@ check_post() {
   # 后检以工作用户环境为准；未创建则跳过
   if [[ $EXECUTOR -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
     chk_warn "工作用户 $OWNER 未创建，跳过用户环境后检"
+    return 0
+  fi
+  # 尚未初始化：整体提示，不逐项 FAIL
+  if [[ $EXECUTOR -eq 0 && ! -e "$BASE_HOME/control.env" && ! -d "$BASE_HOME/control-center" ]]; then
+    chk_warn "环境尚未初始化（属预期，执行 sudo bash scripts/init-env.sh 后复检）"
+    return 0
+  fi
+  if [[ $EXECUTOR -eq 1 && ! -d "$BASE_HOME/executor" ]]; then
+    chk_warn "executor 尚未初始化（属预期，执行 --executor 初始化后复检）"
     return 0
   fi
   local d
