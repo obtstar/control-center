@@ -15,7 +15,7 @@ clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调�
       || { warn "保留现有目录，跳过克隆: $dest"; return 1; }
   fi
   rm -rf "$dest"
-  if gitu "clone '$remote' '$dest'" >/dev/null 2>&1; then
+  if gitu "clone '$remote' '$dest'"; then
     grep -q 'refs/heads/dev$' <<<"$refs" \
       && gitu "-C '$dest' checkout -q dev" >/dev/null 2>&1 || true
     log "克隆仓库: $name（来自 $remote）"
@@ -118,7 +118,7 @@ sync_repo_wt() { # $1=repo_key $2=git_url $3=常驻分支 $4=工作区绝对路�
   local bare="$BASE_HOME/.repos/$key.git"
   if [[ ! -d "$bare" ]]; then
     [[ -z "$url" ]] && { init_repo_skeleton "$key" "${dest#$BASE_HOME/}"; return 0; }
-    if ! gitu "clone --bare '$url' '$bare'" >/dev/null 2>&1; then
+    if ! gitu "clone --bare '$url' '$bare'"; then
       warn "bare 克隆失败（远程为空/不可达），骨架回退: $key"
       init_repo_skeleton "$key" "${dest#$BASE_HOME/}"
       return 0
@@ -150,7 +150,7 @@ sync_repo_infra() { # $1=repo_key $2=git_url $3=工作区绝对路径
   [[ -z "$url" ]] && { warn "无远程地址，跳过: $key"; return 0; }
   mkdir -p "$BASE_HOME/.repos"
   own "$BASE_HOME/.repos"
-  if gitu "clone --separate-git-dir '$gitdir' '$url' '$dest'" >/dev/null 2>&1; then
+  if gitu "clone --separate-git-dir '$gitdir' '$url' '$dest'"; then
     log "克隆仓库: $key（gitdir: ~/.repos/$key.git）"
     # 本地默认工作分支 dev（无 dev 分支时保持 main）
     gitu "-C '$dest' checkout -q dev" >/dev/null 2>&1 || true

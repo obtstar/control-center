@@ -238,7 +238,7 @@ clone_control_center() {
   local remote="$GIT_REMOTE_BASE/control-center.git"
   # gitdir 集中 ~/.repos：--separate-git-dir（工作区 .git 为指针文件）
   mkdir -p "$BASE_HOME/.repos"
-  if gitu "clone --separate-git-dir '$gitdir' '$remote' '$dest'" >/dev/null 2>&1; then
+  if gitu "clone --separate-git-dir '$gitdir' '$remote' '$dest'"; then
     log "克隆仓库: control-center（gitdir: ~/.repos/control-center.git）"
   else
     warn "克隆失败（无权限或网络受限？）: $remote"
