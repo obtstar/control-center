@@ -42,7 +42,6 @@ Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、Docker roo
 
 | 变量 | 说明 |
 |-----|------|
-| `BASE_HOME` | 覆盖环境基目录（默认：工作用户的 home） |
 | `NPM_REGISTRY` | npm 内网镜像（安装 pi/openskills 用） |
 | `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
@@ -85,7 +84,7 @@ sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎
 ### 注意事项
 
 - 初始化需 root（新建工作用户 `dev` 与 `agent`、设置目录属主）；非 root 仅支持 `--check` 校验
-- 基目录默认取工作用户的 home（`--owner` 指定，`BASE_HOME` 环境变量可覆盖）
+- 基目录由 `--owner` 推导（默认 `dev` 的 home），无其他覆盖入口
 - Debian/Ubuntu 先装 `sudo apt install python3-venv`
 - executor 初始化后：在 `registry/executors.yaml` 登记本机 → 将签发的 token 写入 `~/executor/.env` 的 `EXECUTOR_TOKEN` → 启动 executor 服务
 - 密钥只进 `.env`（600 权限），不进 bashrc、不进 Git

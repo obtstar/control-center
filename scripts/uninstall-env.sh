@@ -3,8 +3,8 @@
 # 依据：scripts/init-env.sh 所创建的全部产物（docs/architecture/13/16 章）
 set -uo pipefail
 
-BASE_HOME="${BASE_HOME:-}"   # 未指定时解析为工作用户 home（默认 dev）
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
+BASE_HOME="/home/$OWNER"     # 基目录恒为工作用户 home，与执行者无关
 EXECUTOR=0
 ASSUME_YES=0
 SAVED_ARGS="$*"
@@ -12,8 +12,7 @@ SAVED_ARGS="$*"
 usage() {
   cat <<EOF
 用法: $0 [选项]
-  --owner NAME   工作用户（默认: dev，与安装时 --owner 一致；其 home 即基目录，
-                 可用 BASE_HOME 环境变量覆盖）
+  --owner NAME   工作用户（默认: dev，与安装时 --owner 一致；其 home 即基目录）
   --executor     执行节点模式（仅卸载 executor 产物，仅删 agent 用户）
   --yes          全部确认（非交互，慎用）
   -h, --help     显示帮助
@@ -36,15 +35,6 @@ if [[ $EUID -ne 0 ]]; then
   echo "卸载需要 root 权限（删除 agent/工作用户及其属主目录）。" >&2
   echo "请使用: sudo bash $0 $SAVED_ARGS" >&2
   exit 1
-fi
-
-# 基目录默认取工作用户 home（默认 dev），--home 或 BASE_HOME 环境变量可覆盖
-if [[ -z "$BASE_HOME" ]]; then
-  if id "$OWNER" &>/dev/null; then
-    BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
-  else
-    BASE_HOME="$HOME"
-  fi
 fi
 
 log() { printf '\033[1;34m[uninstall]\033[0m %s\n' "$*"; }

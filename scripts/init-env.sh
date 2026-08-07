@@ -5,8 +5,8 @@
 #       docs/architecture/10-deployment.md（docker-compose 测试环境）
 set -euo pipefail
 
-if [[ -n "${BASE_HOME:-}" ]]; then HOME_SET=1; else HOME_SET=0; BASE_HOME="$HOME"; fi
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
+BASE_HOME="/home/$OWNER"     # 基目录恒为工作用户 home，与执行者无关
 SAVED_ARGS="$*"
 SKIP_USERS=0
 SKIP_COMPOSE=0
@@ -16,7 +16,7 @@ usage() {
   cat <<EOF
 用法: $0 [选项]
   --owner NAME      工作用户（默认: dev；root 运行且不存在时自动创建，
-                    其 home 即环境基目录，可用 BASE_HOME 环境变量覆盖）
+                    其 home 即环境基目录）
   --executor        执行节点模式：仅初始化本机为 executor（办公 PC 的 WSL），
                     连接编排节点取代码、本地执行、结果回传（见 10 章 executor 代理）
   --control-api URL 编排节点 control-api 地址（executor 模式使用，
@@ -36,7 +36,6 @@ usage() {
                     远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev
   GIT_PROTO         远程协议 ssh|http（与 GIT_REMOTE_HOST 组合，交互时可选 1/2）
   GIT_REMOTE_HOST   远程主机/组织（默认 github.com/obtstar）
-  BASE_HOME         覆盖环境基目录（默认: 工作用户的 home）
 EOF
 }
 
@@ -91,8 +90,8 @@ check_pre() {
   grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null \
     && chk_pass "WSL 环境" || chk_warn "非 WSL（Linux 原生可用，路径语义一致）"
 
-  # 编排节点 + root：命令检测以工作用户（dev）环境为准；未创建则跳过
-  if [[ $EXECUTOR -eq 0 && $EUID -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
+  # 命令检测以工作用户（dev）环境为准；未创建则跳过（与执行者无关）
+  if [[ $EXECUTOR -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
     chk_warn "工作用户 $OWNER 未创建，跳过用户环境检测（初始化时将自动创建）"
   else
   local c
@@ -124,8 +123,8 @@ check_pre() {
 
 check_post() {
   log "环境后检（base: $BASE_HOME）"
-  # 编排节点 + root：后检以工作用户环境为准；未创建则跳过
-  if [[ $EXECUTOR -eq 0 && $EUID -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
+  # 后检以工作用户环境为准；未创建则跳过
+  if [[ $EXECUTOR -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
     chk_warn "工作用户 $OWNER 未创建，跳过用户环境后检"
     return 0
   fi
@@ -673,23 +672,18 @@ EOF
 
 # ── main ──────────────────────────────────────────────────────
 if [[ $CHECK_ONLY -eq 1 ]]; then
-  # --check 巡检且工作用户已存在时，以其 home 为基目录（与初始化一致）
-  if [[ $HOME_SET -eq 0 ]] && id "$OWNER" &>/dev/null; then
-    BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
-  fi
   check_pre
   check_post || true
   exit 0
 fi
 
-# 编排节点 + root：确保工作用户存在（默认 dev，--owner 自定义）；
-# 未显式 --home 时以工作用户的 home 为基目录（避免 sudo 后落到 /root）
-if [[ $EXECUTOR -eq 0 && $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
+# root：确保工作用户存在（默认 dev，--owner 自定义，两种模式通用）；
+# 基目录恒为 /home/$OWNER，与执行者无关
+if [[ $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
   if ! id "$OWNER" &>/dev/null; then
     useradd -m -s /bin/bash "$OWNER"
-    log "创建工作用户: $OWNER（home: $(getent passwd "$OWNER" | cut -d: -f6)）"
+    log "创建工作用户: $OWNER（home: /home/$OWNER）"
   fi
-  [[ $HOME_SET -eq 0 ]] && BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
 fi
 
 check_pre
