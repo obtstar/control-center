@@ -418,7 +418,7 @@ EOF
       && source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts" \
     "$node_mirror source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts"
   try_install "uv（Python 版本/包管理）" uv "$uv_cmd" "$uv_cmd"
-  try_install "Go（golang.google.cn，piekbs 源码构建用）" go \
+  try_install "Go（golang.google.cn 用户级）" go \
     'set -e
      ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
      [[ -n "$ver" ]] || { echo "未获取到 Go 版本" >&2; exit 1; }
@@ -428,7 +428,8 @@ EOF
      curl -fsSL "https://golang.google.cn/dl/$ver.linux-$arch.tar.gz" -o /tmp/go.tgz
      rm -rf "$HOME/.local/lib/go" && tar -xzf /tmp/go.tgz -C "$HOME/.local/lib" && rm -f /tmp/go.tgz
      ln -sfn "$HOME/.local/lib/go/bin/go" "$HOME/.local/bin/go"
-     ln -sfn "$HOME/.local/lib/go/bin/gofmt" "$HOME/.local/bin/gofmt"' \
+     ln -sfn "$HOME/.local/lib/go/bin/gofmt" "$HOME/.local/bin/gofmt"
+     go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn' \
     'set -e
      ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
      [[ -n "$ver" ]] || exit 1
@@ -489,6 +490,12 @@ default = true
 EOF
   [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$uv_conf"
   log "uv 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$uv_conf/uv.toml）"
+
+  # Go：goproxy.cn 模块代理（已装 Go 时写入 go env）
+  if as_target_user "$USER_ENV command -v go" &>/dev/null; then
+    as_target_user "$USER_ENV go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn" \
+      && log "Go 代理: https://goproxy.cn,direct（go env -w）"
+  fi
 }
 
 # ── 3. 环境变量配置 ───────────────────────────────────────────
