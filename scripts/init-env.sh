@@ -351,6 +351,17 @@ as_target_user() { # 以工作用户身份执行：root→su；本人→直接�
 # 用户级工具链环境前缀（uv/nvm/~/.local/bin），探测与执行统一加载
 USER_ENV='export PATH="$HOME/.local/bin:$PATH"; source "$HOME/.nvm/nvm.sh" 2>/dev/null;'
 
+# root 时把路径归属工作用户（幂等，非 root 为 no-op）
+own() {
+  [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$@"
+  return 0
+}
+
+# 以工作用户身份执行 git（使用其 ~/.ssh 密钥，自动接受新 host key）
+gitu() { # $*=git 子命令及参数（单个字符串）
+  as_target_user "export GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=accept-new'; git $*"
+}
+
 try_install() { # $1=名称 $2=检测命令 $3=安装命令 $4=升级命令（可选）
   local name="$1" check="$2" cmd="$3" upcmd="${4:-}"
   if [[ -n "$check" ]] && as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; command -v $check" &>/dev/null; then
@@ -421,7 +432,7 @@ grep -q JAVA_HOME "$HOME/.bashrc" 2>/dev/null \
 echo "完成: JAVA_HOME=$dest/jdk17, maven=$dest/maven"
 EOF
   chmod +x "$jm_script"
-  [[ $EUID -eq 0 ]] && chown "$OWNER:$(id -gn "$OWNER")" "$jm_script"
+  own "$jm_script"
 
   try_install "Java + Maven（清华镜像 Temurin 17 + Maven）" java \
     "bash '$jm_script'" "bash '$jm_script'"
@@ -495,7 +506,7 @@ index-url = https://pypi.tuna.tsinghua.edu.cn/simple
 trusted-host = pypi.tuna.tsinghua.edu.cn
 timeout = 30
 EOF
-  [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$pip_conf"
+  own "$pip_conf"
   log "pip 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$pip_conf/pip.conf）"
 
   # uv：清华镜像（uv.toml）
@@ -506,13 +517,11 @@ EOF
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
 EOF
-  [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$uv_conf"
+  own "$uv_conf"
   log "uv 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$uv_conf/uv.toml）"
 
   # ~/.config 本身归属工作用户（pip/uv 子目录由 root 创建，父目录不能留 root 所有）
-  if [[ $EUID -eq 0 && -d "$BASE_HOME/.config" ]]; then
-    chown "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/.config"
-  fi
+  own "$BASE_HOME/.config"
 
   # Go：goproxy.cn 模块代理（已装 Go 时写入 go env）
   if as_target_user "$USER_ENV command -v go" &>/dev/null; then
@@ -543,7 +552,7 @@ export LITELLM_ENDPOINT="$LITELLM_ENDPOINT"
 EOF
   chmod 600 "$env_file"
   # root(sudo) 运行时归属工作用户，否则 600 权限下 owner 无法 source
-  [[ $EUID -eq 0 ]] && chown "$OWNER:$(id -gn "$OWNER")" "$env_file"
+  own "$env_file"
   fi
 
   # bashrc 幂等挂载
@@ -615,7 +624,7 @@ install_pi_packages() {
     if as_target_user "$USER_ENV pi install npm:pi-di18n"; then
       local s="$BASE_HOME/.pi/settings.json"
       [[ -f "$s" ]] && sed -i 's/"locale": "[^"]*"/"locale": "zh-CN"/' "$s" 2>/dev/null || true
-      [[ $EUID -eq 0 && -f "$s" ]] && chown "$OWNER:$(id -gn "$OWNER")" "$s"
+      [[ -f "$s" ]] && own "$s"
       log "pi-di18n 已安装，locale=zh-CN"
     else
       warn "pi-di18n 安装失败（可稍后手动: pi install npm:pi-di18n）"
@@ -682,11 +691,9 @@ EOF
 # ── 6. 代码仓库骨架（13.2）────────────────────────────────────
 # 远程克隆公共逻辑：远程有内容则克隆（空目录自动覆盖，含文件需确认）
 clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调用方走回退）
-  # git 一律以工作用户身份执行（使用其 ~/.ssh 密钥，root 无 GitHub 凭据）
   local name="$1" dest="$2" remote="" refs="" rc=0
-  local gitssh="git -c core.sshCommand=ssh\ -o\ StrictHostKeyChecking=accept-new"
   [[ -n "${GIT_REMOTE_BASE:-}" ]] && remote="$GIT_REMOTE_BASE/$name.git" || return 1
-  refs="$(as_target_user "$gitssh ls-remote '$remote'" 2>/dev/null)" || rc=$?
+  refs="$(gitu "ls-remote '$remote'" 2>/dev/null)" || rc=$?
   if [[ $rc -ne 0 ]]; then
     warn "远程不可达或无权限，跳过: $remote"
     return 1
@@ -697,9 +704,9 @@ clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调�
       || { warn "保留现有目录，跳过克隆: $dest"; return 1; }
   fi
   rm -rf "$dest"
-  if as_target_user "$gitssh clone '$remote' '$dest'" >/dev/null 2>&1; then
+  if gitu "clone '$remote' '$dest'" >/dev/null 2>&1; then
     grep -q 'refs/heads/dev$' <<<"$refs" \
-      && as_target_user "git -C '$dest' checkout -q dev" >/dev/null 2>&1 || true
+      && gitu "-C '$dest' checkout -q dev" >/dev/null 2>&1 || true
     log "克隆仓库: $name（来自 $remote）"
     return 0
   fi
@@ -740,8 +747,8 @@ EOF
   # 可选：配置远程并推送（以工作用户身份，使用其 SSH 密钥）
   if [[ -n "${GIT_REMOTE_BASE:-}" ]]; then
     local remote="$GIT_REMOTE_BASE/$1.git"
-    as_target_user "git -C '$repo' remote add origin '$remote'" 2>/dev/null || true
-    if as_target_user "git -C '$repo' push -u origin main dev" >/dev/null 2>&1; then
+    gitu "-C '$repo' remote add origin '$remote'" 2>/dev/null || true
+    if gitu "-C '$repo' push -u origin main dev" >/dev/null 2>&1; then
       log "初始化仓库: $1（main + dev，已推送 $remote）"
     else
       warn "仓库 $1 已初始化，但推送失败（远程不存在或无权限？）：$remote"
@@ -773,7 +780,7 @@ resolve_remote_base() {
 
 # 已存在仓库以 git pull 更新（以工作用户身份，--ff-only 防合并冲突）
 update_repo() { # $1=路径 $2=名称
-  if as_target_user "git -C '$1' pull --ff-only" >/dev/null 2>&1; then
+  if gitu "-C '$1' pull --ff-only" >/dev/null 2>&1; then
     log "已更新: $2（git pull --ff-only）"
   else
     warn "更新失败（非快进/网络受限），保留现状: $2"
@@ -791,7 +798,7 @@ init_control_center() {
   fi
   if [[ -d "$BASE_HOME/control-center" ]]; then
     chmod 750 "$BASE_HOME/control-center"
-    [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/control-center"
+    own "$BASE_HOME/control-center"
   fi
 }
 
@@ -802,9 +809,7 @@ init_repos() {
     init_repo_skeleton "$r"
   done
   # root(sudo) 运行时把仓库归属工作用户（16.3 权限模型）
-  if [[ $EUID -eq 0 ]]; then
-    chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos" 2>/dev/null || true
-  fi
+  own "$BASE_HOME/repos"
 }
 
 # ── 6.5 PieKBS 知识库（Agent 知识搜索引擎，MCP）──────────────
@@ -855,7 +860,7 @@ init_piekbs() {
       fi
     fi
     if [[ -n "$kb_src" ]]; then
-      as_target_user "git -c core.sshCommand='ssh -o StrictHostKeyChecking=accept-new' clone '$kb_src' '$kb'" \
+      gitu "clone '$kb_src' '$kb'" \
         && log "KB 已克隆: $kb_src → $kb" \
         || { warn "KB 克隆失败，回退空库: $kb_src"; kb_src=""; }
     fi
@@ -883,7 +888,7 @@ ui:
   language: "zh-CN"
 EOF
     chmod 600 "$kb/config.yaml"
-    [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$kb"
+    own "$kb"
     log "已生成 $kb/config.yaml（distill → LiteLLM cheap 模型，token 需填入）"
     log "启动: piekbs serve（127.0.0.1:8766；局域网经 ssh -L 8766:localhost:8766 访问）"
     log "pi 接入 MCP: http://127.0.0.1:8766/mcp"
@@ -891,15 +896,15 @@ EOF
 
   # 3. KB 版本化：raw/wiki/schema 进 Git（可审计/可回滚），index 为派生物忽略
   if [[ -d "$kb/wiki" && ! -d "$kb/.git" ]]; then
-    as_target_user "git -C '$kb' init -b main >/dev/null 2>&1 \
+    gitu "-C '$kb' init -b main >/dev/null 2>&1 \
       || { git -C '$kb' init -q; git -C '$kb' symbolic-ref HEAD refs/heads/main; }"
     cat > "$kb/.gitignore" <<'EOF'
 index/
 *.log
 .DS_Store
 EOF
-    [[ $EUID -eq 0 ]] && chown "$OWNER:$(id -gn "$OWNER")" "$kb/.gitignore"
-    as_target_user "git -C '$kb' add -A \
+    own "$kb/.gitignore"
+    gitu "-C '$kb' add -A \
       && git -C '$kb' -c user.name=init-env -c user.email=init-env@local \
         commit -q -m 'chore: init knowledge base' >/dev/null" \
       && log "KB 已版本化: $kb（index/ 已忽略）"
@@ -907,7 +912,7 @@ EOF
   # 远程：control-wiki（默认 $GIT_REMOTE_BASE/control-wiki.git，CONTROL_WIKI_REMOTE 可覆盖）
   local kb_remote="${CONTROL_WIKI_REMOTE:-${GIT_REMOTE_BASE:+$GIT_REMOTE_BASE/control-wiki.git}}"
   if [[ -d "$kb/.git" && -n "$kb_remote" ]]; then
-    as_target_user "git -C '$kb' remote add origin '$kb_remote' 2>/dev/null; \
+    gitu "-C '$kb' remote add origin '$kb_remote' 2>/dev/null; \
       git -C '$kb' push -u origin main" >/dev/null 2>&1 \
       && log "KB 已推送: $kb_remote" \
       || warn "KB 推送失败（远程不存在或无权限？）：$kb_remote"
@@ -1087,7 +1092,7 @@ post_init_migrate() {
       else
         rm -rf "$BASE_HOME/control-center"   # init_dirs 生成的空骨架
         mv "$src" "$BASE_HOME/control-center"
-        chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/control-center"
+        own "$BASE_HOME/control-center"
         log "已迁移: $src → $BASE_HOME/control-center"
       fi
     fi
@@ -1127,7 +1132,7 @@ if [[ $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
         if [[ ! "$ans" =~ ^[nN](o)?$ ]]; then
           mkdir -p "$BASE_HOME/.ssh"
           cp "/home/$invoker/.ssh/authorized_keys" "$BASE_HOME/.ssh/authorized_keys"
-          chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/.ssh"
+          own "$BASE_HOME/.ssh"
           chmod 700 "$BASE_HOME/.ssh"
           chmod 600 "$BASE_HOME/.ssh/authorized_keys"
           log "已复制 SSH 公钥 → $OWNER"
