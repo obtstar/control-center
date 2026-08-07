@@ -83,16 +83,21 @@ check_pre() {
   grep -qiE 'microsoft|wsl' /proc/version 2>/dev/null \
     && chk_pass "WSL 环境" || chk_warn "非 WSL（Linux 原生可用，路径语义一致）"
 
+  # 编排节点 + root：命令检测以工作用户（dev）环境为准；未创建则跳过
+  if [[ $EXECUTOR -eq 0 && $EUID -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
+    chk_warn "工作用户 $OWNER 未创建，跳过用户环境检测（初始化时将自动创建）"
+  else
   local c
   for c in git python3 curl; do
-    command -v "$c" >/dev/null && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
+    as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
   done
-  for c in npm docker java node; do
-    command -v "$c" >/dev/null && chk_pass "命令: $c（可选）" || chk_warn "缺少可选命令: $c"
+  for c in npm docker java node pnpm; do
+    as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c（可选）" || chk_warn "缺少可选命令: $c"
   done
 
-  python3 -c 'import ensurepip' 2>/dev/null \
+  as_target_user "python3 -c 'import ensurepip'" >/dev/null 2>&1 \
     && chk_pass "python3 venv 支持" || chk_warn "缺 ensurepip：apt install python3-venv"
+  fi
 
   local avail
   avail=$(df -Pm "$BASE_HOME" 2>/dev/null | awk 'NR==2{print $4}') || true
@@ -111,6 +116,11 @@ check_pre() {
 
 check_post() {
   log "环境后检（base: $BASE_HOME）"
+  # 编排节点 + root：后检以工作用户环境为准；未创建则跳过
+  if [[ $EXECUTOR -eq 0 && $EUID -eq 0 ]] && ! id "$OWNER" &>/dev/null; then
+    chk_warn "工作用户 $OWNER 未创建，跳过用户环境后检"
+    return 0
+  fi
   local d
   if [[ $EXECUTOR -eq 1 ]]; then
     for d in executor/workspace executor/cache executor/logs; do
@@ -655,6 +665,10 @@ EOF
 
 # ── main ──────────────────────────────────────────────────────
 if [[ $CHECK_ONLY -eq 1 ]]; then
+  # root 巡检且工作用户已存在时，以其 home 为基目录（与初始化一致）
+  if [[ $EXECUTOR -eq 0 && $EUID -eq 0 && $HOME_SET -eq 0 ]] && id "$OWNER" &>/dev/null; then
+    BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
+  fi
   check_pre
   check_post || true
   exit 0
