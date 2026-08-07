@@ -74,17 +74,17 @@ fi
 
 # ── 交互式参数（tty 且未显式指定时询问；非交互用 flag/env 直给）─
 interactive_setup() {
-  [[ -t 0 ]] || return 0
+  has_tty || return 0
   local ans
   if [[ $OWNER_SET -eq 0 ]]; then
-    read -rp "工作用户 [$OWNER]: " ans
+    read -rp "工作用户 [$OWNER]: " ans </dev/tty
     if [[ -n "$ans" && "$ans" != "$OWNER" ]]; then
       OWNER="$ans"
       BASE_HOME="/home/$OWNER"
     fi
   fi
   if [[ $EXECUTOR_SET -eq 0 ]]; then
-    read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans
+    read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans </dev/tty
     [[ "$ans" == "2" ]] && EXECUTOR=1
   fi
 }
@@ -92,20 +92,23 @@ interactive_setup() {
 # 分步执行确认：flag 跳过 > 非交互默认执行 > 交互询问（回车默认 Y）
 step_enabled() { # $1=步骤名 $2=skip flag
   [[ "$2" == "1" ]] && { log "已跳过（--skip）: $1"; return 1; }
-  [[ -t 0 ]] || return 0
+  has_tty || return 0
   local ans
-  read -rp "执行步骤「$1」？[Y/n] " ans
+  read -rp "执行步骤「$1」？[Y/n] " ans </dev/tty
   [[ ! "$ans" =~ ^[nN](o)?$ ]]
 }
 
 log() { printf '\033[1;34m[init]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 
+# 交互判定：stdin 是 tty 或可打开 /dev/tty（覆盖 curl|bash、ssh 无 -t 场景）
+has_tty() { [[ -t 0 ]] || ( : </dev/tty ) >/dev/null 2>&1; }
+
 # 已存在文件的覆盖确认：交互时询问，非交互默认保留（返回 0=覆盖 1=保留）
 confirm_overwrite() {
-  [[ -t 0 ]] || return 1
+  has_tty || return 1
   local ans
-  read -rp "$1 已存在，是否覆盖？[y/N] " ans
+  read -rp "$1 已存在，是否覆盖？[y/N] " ans </dev/tty
   [[ "$ans" =~ ^[yY](es)?$ ]]
 }
 
@@ -317,9 +320,9 @@ init_users() {
 # 全部落在工作用户 home：Java/Maven→SDKMAN!，Node→nvm，pnpm→corepack；
 # root 运行时 su 到工作用户执行，不污染 /root 与系统目录
 confirm_opt() { # 非交互默认跳过
-  [[ -t 0 ]] || return 1
+  has_tty || return 1
   local ans
-  read -rp "$1 [y/N] " ans
+  read -rp "$1 [y/N] " ans </dev/tty
   [[ "$ans" =~ ^[yY](es)?$ ]]
 }
 
@@ -385,9 +388,9 @@ init_toolchain() {
 
 # ── 2.6 国内镜像加速（交互选择，默认 Y）──────────────────────
 init_mirrors() {
-  [[ -t 0 ]] || { log "非交互模式，跳过国内镜像配置"; return 0; }
+  has_tty || { log "非交互模式，跳过国内镜像配置"; return 0; }
   local ans
-  read -rp "配置国内镜像加速（npm→npmmirror、pip→清华）？[Y/n] " ans
+  read -rp "配置国内镜像加速（npm→npmmirror、pip→清华）？[Y/n] " ans </dev/tty
   [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
 
   # npm：npmmirror（用户级，需已装 npm）
@@ -612,12 +615,12 @@ EOF
 resolve_remote_base() {
   [[ -n "${GIT_REMOTE_BASE:-}" ]] && return 0
   local proto="${GIT_PROTO:-}" host="${GIT_REMOTE_HOST:-github.com/obtstar}"
-  if [[ -z "$proto" && -t 0 ]]; then
+  if [[ -z "$proto" ]] && has_tty; then
     echo "平台仓库远程协议（克隆/推送 control-api/control-web/control-db）：" >&2
     echo "  1) ssh   git@$host" >&2
     echo "  2) http  https://$host" >&2
     echo "  回车跳过（仅本地骨架，不关联远程）" >&2
-    read -rp "选择 [1/2]: " proto
+    read -rp "选择 [1/2]: " proto </dev/tty
     [[ "$proto" == "1" ]] && proto=ssh
     [[ "$proto" == "2" ]] && proto=http
   fi
@@ -718,8 +721,8 @@ EOF
 init_executor() {
   # 未指定服务端地址时交互式询问
   if [[ -z "$CONTROL_API" ]]; then
-    if [[ -t 0 ]]; then
-      read -rp "请输入服务端（编排节点）地址，如 http://192.168.1.10:8080: " CONTROL_API
+    if has_tty; then
+      read -rp "请输入服务端（编排节点）地址，如 http://192.168.1.10:8080: " CONTROL_API </dev/tty
     fi
     [[ -z "$CONTROL_API" ]] && { echo "executor 模式需 --control-api URL 或交互输入" >&2; exit 1; }
   fi
@@ -794,6 +797,30 @@ EOF
   init_venv "$BASE_HOME" agent
 }
 
+# ── 完成后：迁移到新用户（交互）───────────────────────────────
+post_init_migrate() {
+  has_tty || return 0
+  local invoker="${SUDO_USER:-}"
+  # 从其他账号 sudo 初始化时：其 home 下的 control-center 克隆可迁入工作用户
+  if [[ -n "$invoker" && "$invoker" != "$OWNER" && "$invoker" != "root" ]]; then
+    local src="/home/$invoker/control-center"
+    if [[ -d "$src/.git" && ! -e "$BASE_HOME/control-center/.git" ]] \
+       && confirm_opt "检测到 $invoker 的 control-center 克隆（$src），迁移到 $BASE_HOME？"; then
+      if [[ -n "$(git -C "$src" status --porcelain 2>/dev/null)" ]]; then
+        warn "源仓库有未提交更改，取消迁移（请先提交/推送）"
+      else
+        rm -rf "$BASE_HOME/control-center"   # init_dirs 生成的空骨架
+        mv "$src" "$BASE_HOME/control-center"
+        chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/control-center"
+        log "已迁移: $src → $BASE_HOME/control-center"
+      fi
+    fi
+  fi
+  if [[ "$(id -un)" != "$OWNER" ]] && confirm_opt "初始化完成，切换到工作用户 $OWNER（su - $OWNER）？"; then
+    exec su - "$OWNER"
+  fi
+}
+
 # ── main ──────────────────────────────────────────────────────
 if [[ $CHECK_ONLY -eq 1 ]]; then
   check_pre
@@ -832,4 +859,5 @@ else
   step_enabled "compose 测试环境" "$SKIP_COMPOSE" && init_compose
   check_post || true
   log "完成。布局见 docs/architecture/13-repo-template.md，权限模型见 16-linux-permissions.md"
+  post_init_migrate
 fi

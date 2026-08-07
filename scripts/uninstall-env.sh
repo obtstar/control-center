@@ -40,11 +40,14 @@ fi
 log() { printf '\033[1;34m[uninstall]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 
+# 交互判定：stdin 是 tty 或可打开 /dev/tty
+has_tty() { [[ -t 0 ]] || ( : </dev/tty ) >/dev/null 2>&1; }
+
 confirm() { # $1=提示；0=确认删除
   [[ $ASSUME_YES -eq 1 ]] && return 0
-  [[ -t 0 ]] || return 1
+  has_tty || return 1
   local ans
-  read -rp "$1 [y/N] " ans
+  read -rp "$1 [y/N] " ans </dev/tty
   [[ "$ans" =~ ^[yY](es)?$ ]]
 }
 

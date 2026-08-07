@@ -15,17 +15,34 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 
 ## 环境初始化脚本（scripts/init-env.sh）
 
+### 使用
+
+```bash
+# 编排节点初始化（第一台，交互式；-E 保留 GIT_PROTO 等环境变量与 SSH agent）
+sudo -E bash scripts/init-env.sh
+
+# 执行节点初始化（后续办公 PC）
+sudo -E bash scripts/init-env.sh --executor
+
+# 环境校验（不初始化，非 root 也可用）
+bash scripts/init-env.sh --check
+
+# 卸载（逐项确认）
+sudo bash scripts/uninstall-env.sh
+```
+
 两种模式：
 
 | 模式 | 用途 | 命令 |
 |-----|------|------|
-| 编排节点（第一台） | 目录结构、Linux 用户、venv、pi/openskills、仓库骨架、compose 测试环境 | `sudo bash scripts/init-env.sh` |
-| 执行节点（后续 PC） | executor 工作区、`agent` 账号、工具链 | `sudo bash scripts/init-env.sh --executor`（交互询问服务端地址） |
+| 编排节点（第一台） | 目录结构、Linux 用户、venv、pi/openskills、仓库克隆/骨架、compose 测试环境 | `sudo -E bash scripts/init-env.sh` |
+| 执行节点（后续 PC） | executor 工作区、`agent` 账号、工具链 | `sudo -E bash scripts/init-env.sh --executor`（交互询问服务端地址） |
 
 ### 交互式流程
 
 tty 交互运行时依次询问：**工作用户**（默认 dev）→ **节点模式**（编排/执行）→ **各步骤是否执行**（目录结构/用户配置/工具链/镜像/venv/Agent 工具/仓库/compose，回车默认 Y）→ 工具链逐项**安装/升级**（默认 N）→ **国内镜像**（默认 Y）→ 已存在文件**覆盖确认**（默认保留）。
-非交互（管道/ssh 无 tty）全部走安全默认：参数取 flag/env、步骤全执行、覆盖与升级跳过。命令行 flag 优先级高于交互询问。
+完成后若是从其他账号 sudo 初始化，会询问是否**迁移其 `~/control-center` 克隆到工作用户**（有未提交更改时自动取消）以及是否**立即 `su - dev` 切换**。
+提示经 `/dev/tty` 读取，`curl | bash` 管道执行也可交互；仅完全无终端（CI）时走安全默认：参数取 flag/env、步骤全执行、覆盖与升级跳过。命令行 flag 优先级高于交互询问。
 
 ### 选项
 
@@ -80,7 +97,7 @@ sudo bash scripts/uninstall-env.sh --executor   # 执行节点（仅删 agent �
 sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
 ```
 
-**卸载需 root**（删除用户及其属主目录）；root 运行且未指定 `--home` 时基目录自动取工作用户的 home。
+**卸载需 root**（删除用户及其属主目录）；基目录由 `--owner` 推导（默认 `dev` 的 home）。
 
 删除 `control-center` 前会检查未提交/未推送的 Git 更改并告警；用户清理为
 **工作用户（默认 `dev`，`--owner` 指定）+ `agent` 两个用户**，工作用户 home
