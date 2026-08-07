@@ -251,15 +251,8 @@ check_post() {
 # ── 1. 目录结构（13.1）────────────────────────────────────────
 init_dirs() {
   log "创建目录结构（base: $BASE_HOME）"
+  # control-center 不再创建空骨架：由 init_repos 直接克隆本仓库
   mkdir -p \
-    "$BASE_HOME/control-center/docs/design/overview" \
-    "$BASE_HOME/control-center/docs/design/external" \
-    "$BASE_HOME/control-center/docs/requirements" \
-    "$BASE_HOME/control-center/docs/architecture" \
-    "$BASE_HOME/control-center/orchestration/prompts" \
-    "$BASE_HOME/control-center/orchestration/skills" \
-    "$BASE_HOME/control-center/orchestration/workflows" \
-    "$BASE_HOME/control-center/registry" \
     "$BASE_HOME/repos" \
     "$BASE_HOME/wt" \
     "$BASE_HOME/data/mysql" \
@@ -268,7 +261,7 @@ init_dirs() {
     "$BASE_HOME/scripts" \
     "$BASE_HOME/deploy/mysql/init"
 
-  chmod 750 "$BASE_HOME/control-center" "$BASE_HOME/data" "$BASE_HOME/logs"
+  chmod 750 "$BASE_HOME/data" "$BASE_HOME/logs"
   chmod 770 "$BASE_HOME/repos" "$BASE_HOME/wt"
 }
 
@@ -594,40 +587,35 @@ EOF
   fi
 }
 # ── 6. 代码仓库骨架（13.2）────────────────────────────────────
+# 远程克隆公共逻辑：远程有内容则克隆（空目录自动覆盖，含文件需确认）
+clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调用方走回退）
+  local name="$1" dest="$2" remote="" refs="" rc=0
+  [[ -n "${GIT_REMOTE_BASE:-}" ]] && remote="$GIT_REMOTE_BASE/$name.git" || return 1
+  refs="$(git ls-remote "$remote" 2>/dev/null)" || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    warn "远程不可达或无权限，跳过: $remote"
+    return 1
+  fi
+  [[ -z "$refs" ]] && return 1   # 空远程（新建未推送）
+  if [[ -n "$(find "$dest" -type f 2>/dev/null)" ]]; then
+    confirm_overwrite "$dest 非空且非 Git 仓库，清空并克隆" \
+      || { warn "保留现有目录，跳过克隆: $dest"; return 1; }
+  fi
+  rm -rf "$dest"
+  if git clone "$remote" "$dest" >/dev/null 2>&1; then
+    grep -q 'refs/heads/dev$' <<<"$refs" && git -C "$dest" checkout -q dev 2>/dev/null || true
+    log "克隆仓库: $name（来自 $remote）"
+    return 0
+  fi
+  warn "克隆失败（无权限或网络受限？）: $remote"
+  return 1
+}
+
 init_repo_skeleton() { # $1=repo 名
   local repo="$BASE_HOME/repos/$1"
   [[ -d "$repo/.git" ]] && { log "仓库已存在，跳过: $1"; return 0; }
-
-  # 远程已有内容则克隆（新机器接入）；远程为空/未配置则本地初始化骨架
-  local remote="" refs="" rc=0
-  [[ -n "${GIT_REMOTE_BASE:-}" ]] && remote="$GIT_REMOTE_BASE/$1.git"
-  if [[ -n "$remote" ]]; then
-    refs="$(git ls-remote "$remote" 2>/dev/null)" || rc=$?
-    if [[ $rc -ne 0 ]]; then
-      warn "远程不可达或无权限，跳过: $remote"
-      return 0
-    fi
-  fi
-  if [[ -n "$refs" ]]; then
-    if [[ -n "$(ls -A "$repo" 2>/dev/null || true)" ]]; then
-      # 非空非 Git 目录（上次中断的骨架等）：交互确认后覆盖
-      if confirm_overwrite "$repo 非空且非 Git 仓库，清空并克隆"; then
-        rm -rf "$repo"
-      else
-        warn "保留现有目录，跳过克隆: $repo"
-        return 0
-      fi
-    else
-      rm -rf "$repo"
-    fi
-    if git clone "$remote" "$repo" >/dev/null 2>&1; then
-      grep -q 'refs/heads/dev$' <<<"$refs" && git -C "$repo" checkout -q dev 2>/dev/null || true
-      log "克隆仓库: $1（来自 $remote）"
-    else
-      warn "克隆失败（无权限或网络受限？）: $remote"
-    fi
-    return 0
-  fi
+  # 远程已有内容则克隆（新机器接入）；否则本地初始化骨架
+  clone_remote "$1" "$repo" && return 0
 
   mkdir -p "$repo"/{docs/design/internal,src/main,tests,db/ddl,ci,openapi}
   cat > "$repo/.gitignore" <<'EOF'
@@ -688,12 +676,19 @@ resolve_remote_base() {
 init_repos() {
   command -v git >/dev/null || { warn "未安装 git，跳过仓库骨架"; return 0; }
   resolve_remote_base
+  # 控制中心本仓库（文档/编排/注册表）：直接克隆，不再创建空骨架
+  if [[ ! -d "$BASE_HOME/control-center/.git" ]]; then
+    clone_remote control-center "$BASE_HOME/control-center" \
+      || warn "control-center 未克隆（可后续手动: git clone <remote> $BASE_HOME/control-center）"
+  fi
+  [[ -d "$BASE_HOME/control-center" ]] && chmod 750 "$BASE_HOME/control-center"
   for r in control-api control-web control-db; do
     init_repo_skeleton "$r"
   done
-  # root(sudo) 运行时把新建仓库归属工作用户（16.3 权限模型）
+  # root(sudo) 运行时把仓库归属工作用户（16.3 权限模型）
   if [[ $EUID -eq 0 ]]; then
-    chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos"
+    chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos" \
+      "$BASE_HOME/control-center" 2>/dev/null || true
   fi
 }
 
