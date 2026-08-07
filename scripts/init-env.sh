@@ -198,6 +198,10 @@ check_post() {
       [[ -d "$BASE_HOME/repos/$r/.git" ]] && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
     done
     id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
+    # 最小权限：工作用户不在 sudo 组
+    id -nG "$OWNER" 2>/dev/null | grep -qw sudo \
+      && chk_warn "工作用户 $OWNER 在 sudo 组（建议移除: gpasswd -d $OWNER sudo）" \
+      || chk_pass "工作用户 $OWNER 无 sudo 权限"
   fi
   [[ -f "$BASE_HOME/.pi/models.json" ]] \
     && chk_pass ".pi/models.json" || chk_warn ".pi/models.json 未生成（--skip-tooling？）"
@@ -258,6 +262,13 @@ init_users() {
   # agent 加入 owner 组获得仓库/技能只读通道；owner home 保持 750（组 r-x）
   usermod -aG "$ogroup" agent
   chgrp -R "$ogroup" "$BASE_HOME/control-center" "$BASE_HOME/repos" 2>/dev/null || true
+
+  # 工作用户不授予 sudo（最小权限；新建用户默认不在 sudo 组，复用已有用户时收紧）
+  if id -nG "$OWNER" 2>/dev/null | grep -qw sudo; then
+    gpasswd -d "$OWNER" sudo >/dev/null 2>&1 \
+      && log "已移除 $OWNER 的 sudo 组成员（最小权限模型）" \
+      || warn "移除 $OWNER sudo 组失败，请手动检查: gpasswd -d $OWNER sudo"
+  fi
 
   # docker 免 sudo：工作用户加入 docker 组（组存在时，重新登录生效）
   if getent group docker &>/dev/null; then
