@@ -727,12 +727,65 @@ init_control_center() {
 init_repos() {
   command -v git >/dev/null || { warn "未安装 git，跳过仓库骨架"; return 0; }
   resolve_remote_base
-  for r in control-api control-web control-db; do
+  for r in control-api control-web control-db piekbs; do
     init_repo_skeleton "$r"
   done
   # root(sudo) 运行时把仓库归属工作用户（16.3 权限模型）
   if [[ $EUID -eq 0 ]]; then
     chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/repos" 2>/dev/null || true
+  fi
+}
+
+# ── 6.5 PieKBS 知识库（Agent 知识搜索引擎，MCP）──────────────
+init_piekbs() {
+  log "PieKBS 知识库（kb_search/kb_page/kb_add，MCP 接口）"
+  local gh="${GH_PROXY:+$GH_PROXY/}"
+
+  # 1. 二进制：GitHub release（linux-amd64，经 GH_PROXY）
+  if as_target_user "$USER_ENV command -v piekbs" &>/dev/null; then
+    log "piekbs 已安装，跳过二进制安装"
+  elif confirm_opt "安装 piekbs 二进制（GitHub release）？"; then
+    local dl_cmd="set -e; "
+    dl_cmd+="url=\$(curl -fsSL ${gh}https://api.github.com/repos/pieteams/piekbs/releases/latest | grep -o 'https://[^\"]*linux-amd64.tar.gz' | head -1); "
+    dl_cmd+="[[ -n \"\$url\" ]] || { echo '未找到 release 下载地址' >&2; exit 1; }; "
+    dl_cmd+="mkdir -p \"\$HOME/.local/bin\" && curl -fsSL ${gh}\$url | tar -xz -C \"\$HOME/.local/bin\" && chmod +x \"\$HOME/.local/bin/piekbs\""
+    as_target_user "$dl_cmd" \
+      && log "piekbs 二进制安装完成（~/.local/bin/piekbs）" \
+      || warn "piekbs 下载失败（网络受限？可手动下载 release 放入 ~/.local/bin）"
+  else
+    log "跳过: piekbs 二进制"
+  fi
+
+  # 2. KB 初始化与配置（distill 走 LiteLLM 代理，FTS 无需 embedding）
+  as_target_user "$USER_ENV command -v piekbs" &>/dev/null || return 0
+  local kb="$BASE_HOME/piekbs-kb"
+  if [[ ! -d "$kb/wiki" ]]; then
+    as_target_user "$USER_ENV PIEKBS_KB='$kb' piekbs init" \
+      && log "KB 已初始化: $kb（raw/ 投放原始文档，watcher 自动蒸馏+索引）" \
+      || warn "piekbs init 失败"
+  fi
+  if [[ -d "$kb" && ! -f "$kb/config.yaml" ]]; then
+    cat > "$kb/config.yaml" <<EOF
+server:
+  host: "127.0.0.1"
+  port: 8766
+  api_key: ""
+
+distill:
+  base_url: "$LITELLM_ENDPOINT/v1"
+  token: ""
+  model: "cheap"
+  api_type: "openai"
+  workers: 2
+
+ui:
+  language: "zh-CN"
+EOF
+    chmod 600 "$kb/config.yaml"
+    [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$kb"
+    log "已生成 $kb/config.yaml（distill → LiteLLM cheap 模型，token 需填入）"
+    log "启动: piekbs serve（127.0.0.1:8766；局域网经 ssh -L 8766:localhost:8766 访问）"
+    log "pi 接入 MCP: http://127.0.0.1:8766/mcp"
   fi
 }
 
@@ -970,8 +1023,9 @@ else
   step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
   init_mirrors
   step_enabled "控制中心仓库（control-center 克隆）" "$SKIP_REPOS" && init_control_center
-  step_enabled "代码仓库（control-api/web/db 克隆/骨架）" "$SKIP_REPOS" && init_repos
+  step_enabled "代码仓库（control-api/web/db/piekbs 克隆/骨架）" "$SKIP_REPOS" && init_repos
   step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
+  step_enabled "PieKBS 知识库（二进制 + KB 初始化）" "$SKIP_TOOLING" && init_piekbs
   init_env_config
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
   if step_enabled "pi / openskills（Agent 工具链）" "$SKIP_TOOLING"; then

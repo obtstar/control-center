@@ -55,7 +55,7 @@ tty 交互运行时依次询问：**工作用户**（默认 dev）→ **节点�
 | `--check` | **仅环境校验，不执行初始化**（非 root 仅支持此模式） |
 
 初始化过程中会逐项询问安装**用户级**语言/框架（默认 `N` 回车跳过）：
-Java+Maven（**清华镜像直装** Temurin 17 + Maven，落 `~/.local`，不依赖 SDKMAN——其无国内镜像）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、Docker rootless（需已装 docker）。
+Java+Maven（**清华镜像直装** Temurin 17 + Maven，落 `~/.local`，不依赖 SDKMAN——其无国内镜像）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、**PieKBS（Agent 知识搜索引擎，MCP 接口，`~/piekbs-kb`，distill 走 LiteLLM `cheap` 模型）**、Docker rootless（需已装 docker）。
 全部落在工作用户 home，不污染系统目录。`.venv` 由 `uv venv` 创建。
 
 随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）、uv→清华（`~/.config/uv/uv.toml`）；并可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`），作用于 nvm/uv 安装器下载（nvm 的 Node 二进制固定走 `npmmirror.com/mirrors/node`）。
