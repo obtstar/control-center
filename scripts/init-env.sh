@@ -832,6 +832,30 @@ EOF
     log "启动: piekbs serve（127.0.0.1:8766；局域网经 ssh -L 8766:localhost:8766 访问）"
     log "pi 接入 MCP: http://127.0.0.1:8766/mcp"
   fi
+
+  # 3. KB 版本化：raw/wiki/schema 进 Git（可审计/可回滚），index 为派生物忽略
+  if [[ -d "$kb/wiki" && ! -d "$kb/.git" ]]; then
+    as_target_user "git -C '$kb' init -b main >/dev/null 2>&1 \
+      || { git -C '$kb' init -q; git -C '$kb' symbolic-ref HEAD refs/heads/main; }"
+    cat > "$kb/.gitignore" <<'EOF'
+index/
+*.log
+.DS_Store
+EOF
+    [[ $EUID -eq 0 ]] && chown "$OWNER:$(id -gn "$OWNER")" "$kb/.gitignore"
+    as_target_user "git -C '$kb' add -A \
+      && git -C '$kb' -c user.name=init-env -c user.email=init-env@local \
+        commit -q -m 'chore: init knowledge base' >/dev/null" \
+      && log "KB 已版本化: $kb（index/ 已忽略）"
+  fi
+  # 远程：control-wiki（默认 $GIT_REMOTE_BASE/control-wiki.git，CONTROL_WIKI_REMOTE 可覆盖）
+  local kb_remote="${CONTROL_WIKI_REMOTE:-${GIT_REMOTE_BASE:+$GIT_REMOTE_BASE/control-wiki.git}}"
+  if [[ -d "$kb/.git" && -n "$kb_remote" ]]; then
+    as_target_user "git -C '$kb' remote add origin '$kb_remote' 2>/dev/null; \
+      git -C '$kb' push -u origin main" >/dev/null 2>&1 \
+      && log "KB 已推送: $kb_remote" \
+      || warn "KB 推送失败（远程不存在或无权限？）：$kb_remote"
+  fi
 }
 
 # ── 7. docker-compose 测试环境（10）───────────────────────────
