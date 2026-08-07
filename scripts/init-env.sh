@@ -286,7 +286,9 @@ install_sys_packages() {
       case "$p" in fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;; *) base+=("$p");; esac
     done
     apt-get update -qq
-    [[ ${#base[@]} -gt 0 ]] && apt-get install -y -qq "${base[@]}"
+    if [[ ${#base[@]} -gt 0 ]]; then
+      apt-get install -y -qq "${base[@]}"
+    fi
   elif command -v pacman &>/dev/null; then
     for p in "${missing[@]}"; do
       case "$p" in rg) base+=(ripgrep);; gh) base+=(github-cli);; *) base+=("$p");; esac

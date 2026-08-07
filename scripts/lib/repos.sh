@@ -186,7 +186,9 @@ sync_repos() {
   local key path url branch dest
   while IFS=$'\t' read -r key path url branch; do
     dest="$BASE_HOME/$path"
-    [[ -z "$url" && -n "${GIT_REMOTE_BASE:-}" ]] && url="$GIT_REMOTE_BASE/$key.git"
+    if [[ -z "$url" && -n "${GIT_REMOTE_BASE:-}" ]]; then
+      url="$GIT_REMOTE_BASE/$key.git"
+    fi
     case "$key" in
       control-center)
         update_repo "$dest" "$key" ;;                    # 引导仓：仅 pull
