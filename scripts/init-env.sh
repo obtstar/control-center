@@ -143,8 +143,8 @@ check_pre() {
   for c in git curl; do
     as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
   done
-  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（清华镜像直装 ~/.local）
-  for c in node npm pnpm java mvn; do
+  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（清华镜像直装 ~/.local）、go（golang.google.cn）
+  for c in node npm pnpm java mvn go; do
     p="$(as_target_user "$user_env command -v $c" 2>/dev/null)" || p=""
     if [[ -z "$p" ]]; then
       chk_warn "缺少可选命令: $c"
@@ -418,6 +418,23 @@ EOF
       && source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts" \
     "$node_mirror source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts"
   try_install "uv（Python 版本/包管理）" uv "$uv_cmd" "$uv_cmd"
+  try_install "Go（golang.google.cn，piekbs 源码构建用）" go \
+    'set -e
+     ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
+     [[ -n "$ver" ]] || { echo "未获取到 Go 版本" >&2; exit 1; }
+     arch=$(uname -m); [[ "$arch" == "aarch64" ]] && arch=arm64 || arch=amd64
+     echo "下载 $ver ($arch)"
+     mkdir -p "$HOME/.local/lib" "$HOME/.local/bin"
+     curl -fsSL "https://golang.google.cn/dl/$ver.linux-$arch.tar.gz" -o /tmp/go.tgz
+     rm -rf "$HOME/.local/lib/go" && tar -xzf /tmp/go.tgz -C "$HOME/.local/lib" && rm -f /tmp/go.tgz
+     ln -sfn "$HOME/.local/lib/go/bin/go" "$HOME/.local/bin/go"
+     ln -sfn "$HOME/.local/lib/go/bin/gofmt" "$HOME/.local/bin/gofmt"' \
+    'set -e
+     ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
+     [[ -n "$ver" ]] || exit 1
+     arch=$(uname -m); [[ "$arch" == "aarch64" ]] && arch=arm64 || arch=amd64
+     curl -fsSL "https://golang.google.cn/dl/$ver.linux-$arch.tar.gz" -o /tmp/go.tgz
+     rm -rf "$HOME/.local/lib/go" && tar -xzf /tmp/go.tgz -C "$HOME/.local/lib" && rm -f /tmp/go.tgz'
   try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
     'export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-https://registry.npmmirror.com}"; \
       source "$HOME/.nvm/nvm.sh" 2>/dev/null \
