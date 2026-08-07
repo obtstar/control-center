@@ -113,8 +113,8 @@ check_post() {
     for r in control-api control-web control-db; do
       t_test "-e '$BASE_HOME/$r/.git'" && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
     done
-    t_test "-e '$BASE_HOME/piekbs/.git'" \
-      && chk_pass "仓库: piekbs" || chk_warn "仓库未初始化: piekbs"
+    t_test "-e '$BASE_HOME/control-piekbs/.git'" \
+      && chk_pass "仓库: control-piekbs" || chk_warn "仓库未初始化: control-piekbs"
     id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
     # 最小权限：工作用户不在 sudo 组
     id -nG "$OWNER" 2>/dev/null | grep -qw sudo \

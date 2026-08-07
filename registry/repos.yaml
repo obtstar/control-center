@@ -47,10 +47,10 @@ repos:
     executor_allowed: true
     disabled: false
 
-  - repo_key: piekbs
+  - repo_key: control-piekbs
     name: PieKBS 知识引擎源码（Agent 基础设施，非项目代码）
-    path: piekbs                   # 顶级目录（gitdir 集中 ~/.repos/piekbs.git）
-    git_url: git@github.com:obtstar/piekbs.git
+    path: control-piekbs           # 顶级目录（gitdir 集中 ~/.repos/control-piekbs.git）
+    git_url: git@github.com:obtstar/control-piekbs.git
     api_type: GITHUB
     default_branch: dev
     executor_allowed: false

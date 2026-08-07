@@ -21,8 +21,8 @@
       "path": "../control-db"
     },
     {
-      "name": "piekbs（源码）",
-      "path": "../piekbs"
+      "name": "control-piekbs（源码）",
+      "path": "../control-piekbs"
     }
   ],
   "settings": {
