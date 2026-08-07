@@ -83,11 +83,21 @@ interactive_setup() {
   has_tty || return 0
   local ans
   if [[ $OWNER_SET -eq 0 ]]; then
-    read -rp "工作用户 [$OWNER]: " ans </dev/tty
-    if [[ -n "$ans" && "$ans" != "$OWNER" ]]; then
-      OWNER="$ans"
-      BASE_HOME="/home/$OWNER"
-    fi
+    while true; do
+      read -rp "工作用户名（新建/使用的 Linux 账号，回车默认 $OWNER）: " ans </dev/tty
+      [[ -z "$ans" || "$ans" == "$OWNER" ]] && break
+      # useradd 命名规则，防止误输入（如把 sudo 密码填进来）
+      if [[ "$ans" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+        read -rp "确认使用工作用户「$ans」？[y/N] " ans2 </dev/tty
+        if [[ "$ans2" =~ ^[yY](es)?$ ]]; then
+          OWNER="$ans"
+          BASE_HOME="/home/$OWNER"
+          break
+        fi
+      else
+        warn "非法用户名: $ans（需小写字母开头，仅含小写字母/数字/_/-）"
+      fi
+    done
   fi
   if [[ $EXECUTOR_SET -eq 0 ]]; then
     read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans </dev/tty
@@ -415,8 +425,12 @@ EOF
     "bash '$jm_script'" "bash '$jm_script'"
   try_install "Node.js LTS（nvm）" node \
     "$node_mirror curl -fsSL $nvm_url | bash \
-      && source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts" \
-    "$node_mirror source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts"
+      && source \"\$HOME/.nvm/nvm.sh\" \
+      && echo '下载 Node LTS（npmmirror，非 tty 下无进度条，请稍候）...' \
+      && nvm install --lts" \
+    "$node_mirror source \"\$HOME/.nvm/nvm.sh\" \
+      && echo '下载 Node LTS（npmmirror，非 tty 下无进度条，请稍候）...' \
+      && nvm install --lts"
   try_install "uv（Python 版本/包管理）" uv "$uv_cmd" "$uv_cmd"
   try_install "Go（golang.google.cn 用户级）" go \
     'set -e
@@ -658,9 +672,11 @@ EOF
 # ── 6. 代码仓库骨架（13.2）────────────────────────────────────
 # 远程克隆公共逻辑：远程有内容则克隆（空目录自动覆盖，含文件需确认）
 clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调用方走回退）
+  # git 一律以工作用户身份执行（使用其 ~/.ssh 密钥，root 无 GitHub 凭据）
   local name="$1" dest="$2" remote="" refs="" rc=0
+  local gitssh="git -c core.sshCommand=ssh\ -o\ StrictHostKeyChecking=accept-new"
   [[ -n "${GIT_REMOTE_BASE:-}" ]] && remote="$GIT_REMOTE_BASE/$name.git" || return 1
-  refs="$(git ls-remote "$remote" 2>/dev/null)" || rc=$?
+  refs="$(as_target_user "$gitssh ls-remote '$remote'" 2>/dev/null)" || rc=$?
   if [[ $rc -ne 0 ]]; then
     warn "远程不可达或无权限，跳过: $remote"
     return 1
@@ -671,8 +687,9 @@ clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调�
       || { warn "保留现有目录，跳过克隆: $dest"; return 1; }
   fi
   rm -rf "$dest"
-  if git clone "$remote" "$dest" >/dev/null 2>&1; then
-    grep -q 'refs/heads/dev$' <<<"$refs" && git -C "$dest" checkout -q dev 2>/dev/null || true
+  if as_target_user "$gitssh clone '$remote' '$dest'" >/dev/null 2>&1; then
+    grep -q 'refs/heads/dev$' <<<"$refs" \
+      && as_target_user "git -C '$dest' checkout -q dev" >/dev/null 2>&1 || true
     log "克隆仓库: $name（来自 $remote）"
     return 0
   fi
@@ -711,11 +728,11 @@ EOF
   git -C "$repo" -c user.name=init-env -c user.email=init-env@local \
     commit --allow-empty -m "chore: init repository skeleton" >/dev/null
   git -C "$repo" checkout -b dev >/dev/null
-  # 可选：配置远程并推送（GIT_REMOTE_BASE 如 git@github.com:obtstar 或 git@git.internal:group）
+  # 可选：配置远程并推送（以工作用户身份，使用其 SSH 密钥）
   if [[ -n "${GIT_REMOTE_BASE:-}" ]]; then
     local remote="$GIT_REMOTE_BASE/$1.git"
-    git -C "$repo" remote add origin "$remote" 2>/dev/null || true
-    if git -C "$repo" push -u origin main dev >/dev/null 2>&1; then
+    as_target_user "git -C '$repo' remote add origin '$remote'" 2>/dev/null || true
+    if as_target_user "git -C '$repo' push -u origin main dev" >/dev/null 2>&1; then
       log "初始化仓库: $1（main + dev，已推送 $remote）"
     else
       warn "仓库 $1 已初始化，但推送失败（远程不存在或无权限？）：$remote"
