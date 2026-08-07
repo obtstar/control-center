@@ -1,114 +1,121 @@
 # control-center
 
-Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本（**无业务代码**）。
-架构文档已迁至 **control-wiki 知识库**（`raw/architecture/`，PieKBS 检索）。
+**个人本地版 AI Agent 平台**的控制面仓库：任务编排配置 + 环境拓扑注册表 + 环境脚本（无业务代码）。
+架构文档全文见 **control-wiki** 知识库（`raw/architecture/`，PieKBS 检索）。
 
-## 目录
+## 平台定位
 
-| 路径 | 内容 |
-|-----|------|
-| `orchestration/` | 任务编排配置：`prompts/`、`skills/`、`workflows/` |
-| `registry/` | 注册表：`repos.yaml`（环境拓扑 + 仓库注册）、`executors.yaml`（执行节点登记） |
-| `scripts/init-env.sh` | **阶段一**引导脚本（单文件，`curl \| bash` 分发） |
-| `scripts/setup-env.sh` | **阶段二**安装入口 |
-| `scripts/lib/` | 阶段二模块（common/check/mirrors/repos/toolchain/piekbs/agent/compose/executor，均 <300 行） |
-| `scripts/uninstall-env.sh` | 卸载脚本 |
-| `control-center.code-workspace` | VS Code 多根目录工作区，`code control-center.code-workspace` 打开 |
+单用户、本地运行的 AI 编码平台：人定需求（wiki），AI 顺流执行（设计→编码→测试），
+逐步审批，GitLab 人工合并。**wiki 是唯一指令源，暂停是最高运行时权限，一切产出有据可依**（18 章权柄模型）。
+
+## 仓库拓扑（GitHub obtstar）
+
+| 仓库 | 类别 | 用途 |
+|-----|------|------|
+| `control-center` | 引导仓（本仓） | 编排配置 `orchestration/`、注册表 `registry/`、环境脚本 `scripts/` |
+| `control-api` | 平台组件 | 编排后端（任务/状态机/审批/调度），Java Spring Boot |
+| `control-web` | 平台组件 | 工作台前端（任务看板/审批/监视/Diff 预览），React |
+| `control-db` | 平台组件 | 数据库 DDL（SQLite 方言，见数据分层） |
+| `control-piekbs` | Agent 基础设施 | PieKBS 知识引擎源码（MCP：`kb_search/kb_page/kb_add`） |
+| `control-wiki` | 知识库 | 平台级 KB：架构文档 raw/wiki/schema，Git 版本化 |
+
+业务项目仓（如 `billing-core`）按需登记进 `registry/repos.yaml`，
+项目级 KB 落 `~/wiki/<repo-key>/`（与平台 KB 分离）。
+
+## 分支策略
+
+六个平台仓统一：**只保留 `main` + `dev`**；远程默认 `main`，本地工作分支 `dev`。
+不使用 feature/release 分支；任务分支仅存在于业务仓。
+
+## 本机布局（gitdir 集中 + worktree 统一）
+
+```
+/home/dev/
+├── .repos/                    # 全部 gitdir 集中（bare/分离式）
+├── control-center/            # 本仓（.git 为指针文件）
+├── control-api|web|db/        # 平台组件（顶级目录，--separate-git-dir）
+├── control-piekbs/            # PieKBS 源码
+├── control-wiki/              # 平台级 KB（raw/wiki/schema 进 Git，index 忽略）
+├── wiki/                      # 项目级 KB 根（每业务仓一个，按需）
+├── wt/                        # 共享工作区根（dev+agent，2770 setgid）
+│   ├── projects/<repo>/dev/   # 业务项目常驻工作区（不回收）
+│   └── <repo>/TASK-*/         # 任务 worktree（7 天回收）
+├── data/control.db            # SQLite 运行时层（可重置，见数据分层）
+├── deploy/                    # docker compose 测试环境
+└── scripts/                   # 本机运维脚本
+```
 
 ## 环境初始化（两阶段）
 
-### 阶段一：init-env.sh（引导，需 root）
-
-只做三件事：**环境校验 → 创建工作用户（dev/agent）→ 克隆 control-center 本工程**，并植入首次登录钩子；顺带可装**系统级**常用工具（direnv/tmux/ripgrep/fd/jq/gh——与 git/curl 同级，apt/pacman/dnf 自适应含包名映射，默认 Y）：
-
 ```bash
-# 编排节点（第一台）
-curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | sudo bash -s --
+# 阶段一（root，curl|bash 单文件）：校验 + 创建用户(dev/agent) + 克隆本仓 + 首次登录钩子
+curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/dev/scripts/init-env.sh | sudo bash -s --
 
-# 执行节点（办公 PC）
-curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | sudo bash -s -- --executor
+# 阶段二（dev 身份，首次登录自动触发或手动）：镜像/仓库同步/工具链/PieKBS/pi/compose
+bash ~/control-center/scripts/setup-env.sh [--executor|--check|--skip-*]
 
-# 仅环境校验（不初始化，非 root 也可用）
-bash scripts/init-env.sh --check
+# 卸载
+sudo bash ~/control-center/scripts/uninstall-env.sh
 ```
 
-### 阶段二：setup-env.sh（安装，工作用户身份，无需 root）
+- 仓库同步由 `registry/repos.yaml` 清单驱动（`wt/` 前缀 → bare+worktree，否则顶级目录）
+- 工具链全用户级（nvm/uv/Go/`~/.local`），direnv/tmux/rg/fd/jq/gh 系统级（阶段一）
+- 国内镜像全覆盖（npm/pip/uv/Go/Node/GitHub 代理，交互选择）
+- 脚本工程化：`init-env.sh` 单文件 <300 行；`setup-env.sh` + `scripts/lib/*` 模块化；
+  配置文件全部模板化（`scripts/templates/` → 渲染到 home，Git 管声明、home 放产物）
 
-**首次以 dev 登录时自动触发**（bashrc 钩子，完成后标记 `~/.control-setup-done`），也可随时手动重跑：
+## 流水线（每阶段一审批闸）
 
-```bash
-bash ~/control-center/scripts/setup-env.sh              # 全量：镜像/仓库同步/工具链/PieKBS/pi/compose
-bash ~/control-center/scripts/setup-env.sh --executor   # 执行节点分支
-bash ~/control-center/scripts/setup-env.sh --check      # 仅校验
+声明式定义：`orchestration/workflows/pipeline.yaml`（热加载）
+
+```
+需求分析 → 审批 → 系统设计 → 审批 → 编码实现 → 审批 → 测试验证 → 审批
+  → 待合并（测试全绿 + heavy 自评 = 自动质量关；GitLab 人工合并 = 终审）→ 交付
 ```
 
-仓库同步由 **`registry/repos.yaml` 清单驱动**：control-center 仅 pull，control-api/web/db 克隆或本地骨架，piekbs 落顶级目录 `~/piekbs`，control-wiki 由 PieKBS 步骤管理。
+- 驳回附批注重做本阶段；测试驳回打回编码；审批全部记 `work_log`（hash 链）
+- 可信阶段可配 `approval: auto`（逃生门）；超时 24h 不自动通过
+- 任务级熔断：连败 3 次或 token 超阈值 → 自动暂停
 
-### 选项（阶段一透传阶段二）
+## 权柄模型（18 章摘要，平台宪法）
 
-| 选项 | 说明 |
-|-----|------|
-| `--owner NAME` | 工作用户（默认 `dev`；阶段一自动创建，其 home 即环境基目录） |
-| `--executor` | 执行节点分支 |
-| `--control-api URL` | 编排节点地址（executor 分支，不传则交互询问） |
-| `--skip-repos` / `--skip-compose` / `--skip-tooling` | 分步跳过（阶段二） |
-| `--check` | **仅环境校验**（阶段一非 root 仅支持此模式；阶段二任意用户可用） |
-
-### 交互式流程
-
-tty 交互运行：阶段一询问**工作用户**（默认 dev，非法输入拒绝）→ **节点模式** → **远程协议**（ssh/http）→ **新用户密码/SSH 公钥**；阶段二询问**各步骤是否执行**（回车默认 Y）→ **国内镜像与 GitHub 代理**（默认 Y）→ 工具链逐项**安装/升级**（默认 N）→ 已存在文件/非空目录**覆盖确认**（默认保留）。
-提示经 `/dev/tty` 读取，`curl | bash` 管道执行也可交互；完全无终端（CI）走安全默认。命令行 flag 优先级高于交互询问。
-
-### 用户级工具链（阶段二逐项询问，默认 N 跳过）
-
-Java+Maven（**清华镜像直装** Temurin 17 + Maven，`~/.local`）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、**Go（golang.google.cn，独立工具）**、**PieKBS（Agent 知识搜索引擎，MCP；KB 落 `~/control-wiki` 并 git 版本化推送 control-wiki 远程仓，distill 走 LiteLLM `cheap` 模型）**、Docker rootless（需已装 docker）。
-全部落在工作用户 home，不污染系统目录（direnv/tmux 例外：系统级包，阶段一安装，direnv 钩子由阶段二写入 bashrc）。
-
-**国内镜像**（默认 Y）：npm→`registry.npmmirror.com`、pip→清华、uv→清华、Go 模块→`goproxy.cn`；可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`）作用于 nvm/uv/piekbs 下载。
-
-pi 初始化生成 `~/.pi/settings.json`：**访问范围限定工作用户 home**，敏感路径列入 `protected_paths`；可选 **pi-di18n** 中文界面（`locale: zh-CN`）。
-
-### 环境变量
-
-| 变量 | 说明 |
-|-----|------|
-| `NPM_REGISTRY` | npm 镜像（默认 `https://registry.npmmirror.com`） |
-| `PIP_INDEX_URL` / `UV_INDEX_URL` | pip / uv 镜像（默认清华） |
-| `GH_PROXY` | GitHub 加速代理前缀（如 `https://gh.dpik.top`） |
-| `NVM_NODEJS_ORG_MIRROR` | nvm 下载 Node 的镜像（默认 `https://npmmirror.com/mirrors/node`） |
-| `GIT_PROTO` / `GIT_REMOTE_HOST` / `GIT_REMOTE_BASE` | 仓库远程构造（ssh/http，默认 `github.com/obtstar`） |
-| `CONTROL_WIKI_REMOTE` | PieKBS 知识库远程仓（默认 `$GIT_REMOTE_BASE/control-wiki.git`） |
-| `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
-
-### 远程校验命令
-
-```bash
-# 阶段一校验（任意机器）
-ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | bash -s -- --check'
-
-# 阶段二校验（已初始化机器，以 dev 执行）
-ssh dev@pc-01 'bash ~/control-center/scripts/setup-env.sh --check'
+```
+L1 需求（仅人可写）> L2 概要设计 > L3 详细设计 > L4 代码
 ```
 
-输出三级：**PASS** 正常 / **WARN** 可择情处理 / **FAIL** 必须修复。
+- **顺行可写，逆行禁止**：AI 顺流产出是本职；修改上级文档人指令也不行——只能出**不一致报告**（不一致点/原因/修改建议/影响范围）并暂停，人改 wiki 后恢复
+- **有据可依**：一切产出必须引用 KB 依据（文档 ID+段落），检索无据 → 暂停，禁止凭空联想
+- **AI 维护 ≠ AI 权柄**：piekbs 蒸馏/组织/索引可交给 AI，但条条可回溯 raw 原文
+- **人的通道仅两条**：改 wiki（唯一指令途径）、暂停/恢复流水线（最高运行时权限）
+- 项目级 KB 权柄 > 平台级规则
 
-### 卸载（scripts/uninstall-env.sh）
+## 数据分层（频率决定存放）
 
-逐项提示删除全部产物（compose 容器 → 目录/配置 → bashrc 挂载与钩子 → 用户），未确认项一律保留：
+| 层 | 内容 | 存放 |
+|---|------|------|
+| 权威（低频） | 代码、文档、编排配置、registry、task.md、KB | **Git** |
+| 派生（读多） | wiki FTS 索引、任务看板索引 | SQLite（可随意重置重建） |
+| 运行时（高频） | work_log 流水、任务状态机 | SQLite（`~/data/control.db`） |
+| 归档 | log.jsonl（原始+链尾哈希）、work_report.md（蒸馏报告，引用链） | 事件触发归档回 **Git** 后 SQLite 方可重置 |
 
-```bash
-sudo bash scripts/uninstall-env.sh              # 编排节点，逐项交互确认（需 root）
-sudo bash scripts/uninstall-env.sh --executor   # 执行节点（仅删 agent 用户）
-sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
+- **任务即文档**：`tasks/TASK-xxx/{task.md, design.md, report.md, log.jsonl}`，
+  task.md frontmatter 携带状态，看板索引从文件重建
+- hash 链跨重置续接（新周期首行 prev_hash 指向上期归档尾哈希）
+- 个人本地版用 SQLite；规模化时 JDBC 换 MySQL/PG（配置项，业务不动）
+
+## AI 模型路由
+
+```
+pi（Agent 运行时，RPC 供 control-api 驱动）
+  → 别名 coding/cheap/heavy → LiteLLM 网关（路由/fallback/预算/限流）
+    → Anthropic / GitHub Copilot / Kimi(Moonshot) 等后端
 ```
 
-删除 `control-center` 前检查未提交/未推送的 Git 更改并告警；用户清理为**工作用户 + `agent`**，工作用户 home 即环境基目录时连 home 一并删除（`userdel -r`）。
+pi 只做模型选择，路由全部在 LiteLLM；pi 配置 `~/.pi/`（models.json 指向网关，
+settings.json 限定访问 home + protected_paths）。
 
-### 注意事项
+## 文档与知识检索
 
-- 阶段一需 root（创建用户、目录属主）；阶段二以工作用户身份运行，**无需 root**
-- 基目录恒为 `/home/<owner>`（默认 `dev`），无其他覆盖入口
-- Python 无需系统级准备：版本与 `.venv` 均由 uv 管理
-- 工具链全部用户级（nvm/uv/Go/`~/.local`），卸载时随 home 清理
-- executor 初始化后：在 `registry/executors.yaml` 登记本机 → 将签发的 token 写入 `~/executor/.env` 的 `EXECUTOR_TOKEN` → 启动 executor 服务
-- 密钥只进 `.env`（600 权限），不进 bashrc、不进 Git
+架构文档（00-18 章）全文在 control-wiki `raw/architecture/`：
+00 原则 / 02 分支与 worktree / 05 编排 / 08 数据模型 / 10 部署 / 14 多仓 / 16 权限 / **18 权柄与有据模型**。
+经 PieKBS 蒸馏后可被 pi/Agent 以 MCP 直接检索（`kb_search`/`kb_page`）。
