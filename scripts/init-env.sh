@@ -378,8 +378,8 @@ init_toolchain() {
   # 下载命令按 GH_PROXY / npmmirror 构造
   local nvm_url="${GH_PROXY:+$GH_PROXY/}https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
   local node_mirror='export NVM_NODEJS_ORG_MIRROR="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}";'
-  local uv_cmd='curl -fsSL https://astral.sh/uv/install.sh | sh'
-  [[ -n "$GH_PROXY" ]] && uv_cmd="curl -fsSL https://astral.sh/uv/install.sh \
+  local uv_cmd="curl -fsSL ${GH_PROXY:+$GH_PROXY/}https://astral.sh/uv/install.sh | sh"
+  [[ -n "$GH_PROXY" ]] && uv_cmd="curl -fsSL $GH_PROXY/https://astral.sh/uv/install.sh \
     | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com/astral-sh/uv/releases' sh"
 
   # Java + Maven：清华镜像直装脚本（SDKMAN 无国内镜像，弃用）
