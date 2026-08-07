@@ -610,10 +610,16 @@ init_repo_skeleton() { # $1=repo 名
   fi
   if [[ -n "$refs" ]]; then
     if [[ -n "$(ls -A "$repo" 2>/dev/null || true)" ]]; then
-      warn "目录非空且无 .git，跳过克隆: $repo"
-      return 0
+      # 非空非 Git 目录（上次中断的骨架等）：交互确认后覆盖
+      if confirm_overwrite "$repo 非空且非 Git 仓库，清空并克隆"; then
+        rm -rf "$repo"
+      else
+        warn "保留现有目录，跳过克隆: $repo"
+        return 0
+      fi
+    else
+      rm -rf "$repo"
     fi
-    rm -rf "$repo"
     if git clone "$remote" "$repo" >/dev/null 2>&1; then
       grep -q 'refs/heads/dev$' <<<"$refs" && git -C "$repo" checkout -q dev 2>/dev/null || true
       log "克隆仓库: $1（来自 $remote）"
@@ -916,6 +922,7 @@ else
   step_enabled "目录结构" 0 && init_dirs
   step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
   init_mirrors
+  step_enabled "代码仓库（克隆/骨架）" "$SKIP_REPOS" && init_repos
   step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_env_config
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
@@ -923,7 +930,6 @@ else
     install_agent_tooling "$BASE_HOME" "$OWNER"          # 人工通道（VSCode/CLI）
     [[ $EUID -eq 0 ]] && install_agent_tooling "$BASE_HOME/.agent" agent  # Agent 通道
   fi
-  step_enabled "代码仓库（克隆/骨架）" "$SKIP_REPOS" && init_repos
   step_enabled "compose 测试环境" "$SKIP_COMPOSE" && init_compose
   check_post || true
   log "完成。布局见 docs/architecture/13-repo-template.md，权限模型见 16-linux-permissions.md"
