@@ -40,8 +40,9 @@ pipeline:
       approval: required
       on_reject: retry
 
-    - id: testing               # 测试验证
+    - id: testing               # 测试验证（本地 docker 开发环境执行，不接团队 CI）
       agent: [integration_test, regression, static_check]
+      env: local_docker
       artifact: 测试报告
       approval: required
       on_reject: back_to_coding # 测试不过打回编码阶段
