@@ -5,6 +5,10 @@
       "path": "."
     },
     {
+      "name": "control-wiki（知识库）",
+      "path": "../control-wiki"
+    },
+    {
       "name": "control-api",
       "path": "../repos/control-api"
     },
@@ -19,10 +23,6 @@
     {
       "name": "piekbs（源码）",
       "path": "../piekbs"
-    },
-    {
-      "name": "control-wiki（知识库）",
-      "path": "../control-wiki"
     },
     {
       "name": "wt（任务 Worktree）",
