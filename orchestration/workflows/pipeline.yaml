@@ -4,8 +4,8 @@
 authority:
   grounding: required           # 有据可依：产出必须引用 KB 依据（文档 ID+段落）
   on_no_basis: pause            # 检索不到依据 → 暂停并说明缺失项，禁止自行发挥
-  doc_write: human_only         # L1-L3 权柄文档 AI 零写权限（人指令也不破例，
-                                # AI 仅可输出建议稿并暂停提示人亲自修改）
+  doc_write: downstream_only    # 顺行可写（L1→L4 当前阶段及以下），逆行禁止：
+                                # 不得修改更高级别文档，人指令也不破例
   on_inconsistency:             # 发现上下级文档不一致（人令 AI 改也不破例）
     action: report_and_pause    # 只产报告 + 暂停任务
     report_fields: [inconsistency_points, root_cause, fix_suggestion, impact_scope]
