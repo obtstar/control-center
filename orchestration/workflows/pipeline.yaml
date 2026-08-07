@@ -1,5 +1,19 @@
 # 流水线状态机（05 章）：每阶段一审批闸
+# 权柄与有据约束见 control-wiki raw/architecture/18-authority.md
 # control-api 热加载本文件；状态流转与审批事件记 work_log（hash 链）
+authority:
+  grounding: required           # 有据可依：产出必须引用 KB 依据（文档 ID+段落）
+  on_no_basis: pause            # 检索不到依据 → 暂停并说明缺失项，禁止自行发挥
+  consistency_check:            # 逐级权柄校验，冲突即暂停
+    design: L1
+    coding: L3
+  wiki_change_hook: pause_affected_tasks   # 人改权柄文档 → 暂停受影响任务
+
+pause:
+  priority: highest             # 最高运行时权限，任何状态可触发，不可覆盖
+  side_effect: stop_all_writes  # 暂停期间禁止一切写操作（代码/wiki/远端）
+  resume: human_only            # 仅人可恢复；恢复时按最新 wiki 重新校验
+
 pipeline:
   stages:
     - id: requirements          # 需求分析
