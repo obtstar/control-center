@@ -548,10 +548,9 @@ init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
 }
 
 # ── 5. pi / openskills 安装与配置 ─────────────────────────────
-install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 chown）
-  local home="$1" user="${2:-}"
-
-  # 5.1 pi（Earendil Pi Coding Agent，以工作用户身份装入其用户级 npm）
+# 5a. 包安装/升级 + 中文界面（仅人工通道调用一次，避免重复询问）
+install_pi_packages() {
+  # pi（Earendil Pi Coding Agent，以工作用户身份装入其用户级 npm）
   if as_target_user "$USER_ENV command -v pi" &>/dev/null; then
     if confirm_opt "pi 已安装，是否升级？"; then
       as_target_user "$USER_ENV npm update -g --ignore-scripts @earendil-works/pi-coding-agent --registry='$NPM_REGISTRY'" \
@@ -566,7 +565,38 @@ install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 c
     warn "npm 未安装，跳过 pi（先在工具链步骤安装 Node.js）"
   fi
 
-  # 5.2 ~/.pi/models.json：自定义 provider 指向企业 LiteLLM 代理（04 章）
+  # openskills（07.3：SKILL.md 技能管理）
+  if as_target_user "$USER_ENV command -v openskills" &>/dev/null; then
+    if confirm_opt "openskills 已安装，是否升级？"; then
+      as_target_user "$USER_ENV npm update -g --ignore-scripts openskills --registry='$NPM_REGISTRY'" \
+        && log "openskills 升级完成" || warn "openskills 升级失败（保留现有版本）"
+    else
+      log "openskills 已安装，跳过"
+    fi
+  elif as_target_user "$USER_ENV command -v npm" &>/dev/null; then
+    as_target_user "$USER_ENV npm install -g --ignore-scripts openskills --registry='$NPM_REGISTRY'" \
+      && log "openskills 安装完成" || warn "openskills 安装失败，可后续手动安装"
+  fi
+
+  # pi-di18n（中文界面，可选）
+  if as_target_user "$USER_ENV command -v pi" &>/dev/null \
+     && confirm_opt "添加 pi-di18n 并切换中文界面？"; then
+    if as_target_user "$USER_ENV pi install npm:pi-di18n"; then
+      local s="$BASE_HOME/.pi/settings.json"
+      [[ -f "$s" ]] && sed -i 's/"locale": "[^"]*"/"locale": "zh-CN"/' "$s" 2>/dev/null || true
+      [[ $EUID -eq 0 && -f "$s" ]] && chown "$OWNER:$(id -gn "$OWNER")" "$s"
+      log "pi-di18n 已安装，locale=zh-CN"
+    else
+      warn "pi-di18n 安装失败（可稍后手动: pi install npm:pi-di18n）"
+    fi
+  fi
+}
+
+# 5b. 配置落盘（人工通道与 agent 通道各自调用）
+install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 chown）
+  local home="$1" user="${2:-}"
+
+  # ~/.pi/models.json：自定义 provider 指向企业 LiteLLM 代理（04 章）
   mkdir -p "$home/.pi"
   if [[ ! -f "$home/.pi/models.json" ]]; then
     cat > "$home/.pi/models.json" <<EOF
@@ -602,36 +632,15 @@ EOF
     chmod 600 "$settings"
     log "已生成 $settings（访问范围限定 $BASE_HOME，敏感路径保护）"
   fi
-
-  # 5.3 openskills（07.3：SKILL.md 技能管理，同 pi 走工作用户用户级 npm）
-  if as_target_user "$USER_ENV command -v openskills" &>/dev/null; then
-    if confirm_opt "openskills 已安装，是否升级？"; then
-      as_target_user "$USER_ENV npm update -g --ignore-scripts openskills --registry='$NPM_REGISTRY'" \
-        && log "openskills 升级完成" || warn "openskills 升级失败（保留现有版本）"
-    else
-      log "openskills 已安装，跳过"
-    fi
-  elif as_target_user "$USER_ENV command -v npm" &>/dev/null; then
-    as_target_user "$USER_ENV npm install -g --ignore-scripts openskills --registry='$NPM_REGISTRY'" \
-      && log "openskills 安装完成" || warn "openskills 安装失败，可后续手动安装"
+  # 立即归属目标用户（后续 di18n 等以 dev 身份读写，避免 EACCES）
+  if [[ $EUID -eq 0 && -n "$user" ]] && id "$user" &>/dev/null; then
+    chown -R "$user:$user" "$home/.pi"
   fi
 
-  # 5.4 技能目录软链：~/.pi/skills → 控制中心 orchestration/skills（Git 版本化）
+  # 技能目录软链：~/.pi/skills → 控制中心 orchestration/skills（Git 版本化）
   if [[ -d "$BASE_HOME/control-center/orchestration/skills" ]]; then
     ln -sfn "$BASE_HOME/control-center/orchestration/skills" "$home/.pi/skills"
     log "技能目录已链接: $home/.pi/skills → control-center/orchestration/skills"
-  fi
-
-  # 5.5 pi-di18n（中文界面，可选；仅人工通道询问一次）
-  if [[ "$home" == "$BASE_HOME" ]] \
-     && as_target_user "$USER_ENV command -v pi" &>/dev/null \
-     && confirm_opt "添加 pi-di18n 并切换中文界面？"; then
-    if as_target_user "$USER_ENV NPM_REGISTRY='$NPM_REGISTRY' pi install pi-di18n"; then
-      sed -i 's/"locale": "[^"]*"/"locale": "zh-CN"/' "$settings" 2>/dev/null || true
-      log "pi-di18n 已安装，locale=zh-CN"
-    else
-      warn "pi-di18n 安装失败（可稍后手动: pi install pi-di18n）"
-    fi
   fi
 
   # root 模式下把配置归属目标用户
@@ -971,6 +980,7 @@ EOF
 
   # 执行节点工具链：pi + openskills + models.json（16.7，配置落 agent 配置目录）
   if [[ $SKIP_TOOLING -eq 0 ]]; then
+    install_pi_packages
     install_agent_tooling "$BASE_HOME/.agent" agent
   fi
   init_venv "$BASE_HOME" agent
@@ -1058,6 +1068,7 @@ else
   init_env_config
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
   if step_enabled "pi / openskills（Agent 工具链）" "$SKIP_TOOLING"; then
+    install_pi_packages
     install_agent_tooling "$BASE_HOME" "$OWNER"          # 人工通道（VSCode/CLI）
     [[ $EUID -eq 0 ]] && install_agent_tooling "$BASE_HOME/.agent" agent  # Agent 通道
   fi
