@@ -7,6 +7,7 @@ set -euo pipefail
 
 if [[ -n "${BASE_HOME:-}" ]]; then HOME_SET=1; else HOME_SET=0; BASE_HOME="$HOME"; fi
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
+SAVED_ARGS="$*"
 SKIP_USERS=0
 SKIP_COMPOSE=0
 SKIP_REPOS=0
@@ -14,8 +15,8 @@ SKIP_REPOS=0
 usage() {
   cat <<EOF
 用法: $0 [选项]
-  --home DIR        基础 home 目录（默认: 工作用户的 home，非 root 时为 \$HOME）
-  --owner NAME      工作用户（默认: dev；root 运行且不存在时自动创建）
+  --owner NAME      工作用户（默认: dev；root 运行且不存在时自动创建，
+                    其 home 即环境基目录，可用 BASE_HOME 环境变量覆盖）
   --executor        执行节点模式：仅初始化本机为 executor（办公 PC 的 WSL），
                     连接编排节点取代码、本地执行、结果回传（见 10 章 executor 代理）
   --control-api URL 编排节点 control-api 地址（executor 模式使用，
@@ -35,6 +36,7 @@ usage() {
                     远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev
   GIT_PROTO         远程协议 ssh|http（与 GIT_REMOTE_HOST 组合，交互时可选 1/2）
   GIT_REMOTE_HOST   远程主机/组织（默认 github.com/obtstar）
+  BASE_HOME         覆盖环境基目录（默认: 工作用户的 home）
 EOF
 }
 
@@ -47,7 +49,6 @@ LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --home) BASE_HOME="$2"; HOME_SET=1; shift 2 ;;
     --owner) OWNER="$2"; shift 2 ;;
     --executor) EXECUTOR=1; shift ;;
     --control-api) CONTROL_API="$2"; shift 2 ;;
@@ -60,6 +61,13 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1" >&2; usage; exit 1 ;;
   esac
 done
+
+# 初始化需 root（创建工作用户/agent、设置目录属主）；非 root 仅允许 --check 校验
+if [[ $CHECK_ONLY -eq 0 && $EUID -ne 0 ]]; then
+  echo "初始化需要 root 权限（创建用户、目录属主配置），非 root 仅支持 --check 环境校验。" >&2
+  echo "请使用: sudo -E bash $0 $SAVED_ARGS" >&2
+  exit 1
+fi
 
 log() { printf '\033[1;34m[init]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
@@ -665,8 +673,8 @@ EOF
 
 # ── main ──────────────────────────────────────────────────────
 if [[ $CHECK_ONLY -eq 1 ]]; then
-  # root 巡检且工作用户已存在时，以其 home 为基目录（与初始化一致）
-  if [[ $EXECUTOR -eq 0 && $EUID -eq 0 && $HOME_SET -eq 0 ]] && id "$OWNER" &>/dev/null; then
+  # --check 巡检且工作用户已存在时，以其 home 为基目录（与初始化一致）
+  if [[ $HOME_SET -eq 0 ]] && id "$OWNER" &>/dev/null; then
     BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
   fi
   check_pre

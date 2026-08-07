@@ -3,7 +3,7 @@
 # 依据：scripts/init-env.sh 所创建的全部产物（docs/architecture/13/16 章）
 set -uo pipefail
 
-BASE_HOME="${BASE_HOME:-$HOME}"
+BASE_HOME="${BASE_HOME:-}"   # 未指定时解析为工作用户 home（默认 dev）
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
 EXECUTOR=0
 ASSUME_YES=0
@@ -12,8 +12,8 @@ SAVED_ARGS="$*"
 usage() {
   cat <<EOF
 用法: $0 [选项]
-  --home DIR     基础 home 目录（默认: \$HOME）
-  --owner NAME   工作用户（默认: dev，与安装时 --owner 一致）
+  --owner NAME   工作用户（默认: dev，与安装时 --owner 一致；其 home 即基目录，
+                 可用 BASE_HOME 环境变量覆盖）
   --executor     执行节点模式（仅卸载 executor 产物，仅删 agent 用户）
   --yes          全部确认（非交互，慎用）
   -h, --help     显示帮助
@@ -23,7 +23,6 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --home) BASE_HOME="$2"; shift 2 ;;
     --owner) OWNER="$2"; shift 2 ;;
     --executor) EXECUTOR=1; shift ;;
     --yes) ASSUME_YES=1; shift ;;
@@ -39,9 +38,13 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# root 运行且未显式 --home：以工作用户 home 为基目录（与初始化一致，避免落到 /root）
-if [[ "${BASE_HOME}" == "$HOME" && $EUID -eq 0 ]] && id "$OWNER" &>/dev/null; then
-  BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
+# 基目录默认取工作用户 home（默认 dev），--home 或 BASE_HOME 环境变量可覆盖
+if [[ -z "$BASE_HOME" ]]; then
+  if id "$OWNER" &>/dev/null; then
+    BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
+  else
+    BASE_HOME="$HOME"
+  fi
 fi
 
 log() { printf '\033[1;34m[uninstall]\033[0m %s\n' "$*"; }

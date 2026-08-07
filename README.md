@@ -26,12 +26,11 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 
 | 选项 | 说明 |
 |-----|------|
-| `--home DIR` | 基础 home 目录（默认：工作用户的 home，非 root 时为 `$HOME`） |
-| `--owner NAME` | 工作用户（默认 `dev`；root 运行且不存在时自动创建） |
+| `--owner NAME` | 工作用户（默认 `dev`；root 运行且不存在时自动创建，其 home 即环境基目录） |
 | `--executor` | 执行节点模式 |
 | `--control-api URL` | 编排节点地址（executor 模式，不传则交互询问） |
 | `--skip-users` / `--skip-repos` / `--skip-compose` / `--skip-tooling` | 分步跳过 |
-| `--check` | **仅环境校验，不执行初始化** |
+| `--check` | **仅环境校验，不执行初始化**（非 root 仅支持此模式） |
 
 初始化过程中会逐项询问安装**用户级**语言/框架（默认 `N` 回车跳过）：
 Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、Docker rootless（需已装 docker）。
@@ -43,6 +42,7 @@ Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、Docker roo
 
 | 变量 | 说明 |
 |-----|------|
+| `BASE_HOME` | 覆盖环境基目录（默认：工作用户的 home） |
 | `NPM_REGISTRY` | npm 内网镜像（安装 pi/openskills 用） |
 | `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
@@ -84,8 +84,8 @@ sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎
 
 ### 注意事项
 
-- 编排节点需 root（新建工作用户 `dev` 与 `agent`）；executor 模式需 root（创建 `agent`）
-- root 运行且未指定 `--home` 时，基目录自动取工作用户的 home（避免 sudo 落到 `/root`）
+- 初始化需 root（新建工作用户 `dev` 与 `agent`、设置目录属主）；非 root 仅支持 `--check` 校验
+- 基目录默认取工作用户的 home（`--owner` 指定，`BASE_HOME` 环境变量可覆盖）
 - Debian/Ubuntu 先装 `sudo apt install python3-venv`
 - executor 初始化后：在 `registry/executors.yaml` 登记本机 → 将签发的 token 写入 `~/executor/.env` 的 `EXECUTOR_TOKEN` → 启动 executor 服务
 - 密钥只进 `.env`（600 权限），不进 bashrc、不进 Git
