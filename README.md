@@ -71,10 +71,12 @@ ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/obtstar/control-cen
 逐项提示并删除初始化创建的全部产物（compose 容器 → 目录/配置 → bashrc 挂载行 → `agent` 用户），未确认项一律保留：
 
 ```bash
-bash scripts/uninstall-env.sh              # 编排节点，逐项交互确认
-bash scripts/uninstall-env.sh --executor   # 执行节点（仅删 agent 用户）
-bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
+sudo bash scripts/uninstall-env.sh              # 编排节点，逐项交互确认（需 root）
+sudo bash scripts/uninstall-env.sh --executor   # 执行节点（仅删 agent 用户）
+sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
 ```
+
+**卸载需 root**（删除用户及其属主目录）；root 运行且未指定 `--home` 时基目录自动取工作用户的 home。
 
 删除 `control-center` 前会检查未提交/未推送的 Git 更改并告警；用户清理为
 **工作用户（默认 `dev`，`--owner` 指定）+ `agent` 两个用户**，工作用户 home

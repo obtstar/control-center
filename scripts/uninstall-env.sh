@@ -7,6 +7,7 @@ BASE_HOME="${BASE_HOME:-$HOME}"
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
 EXECUTOR=0
 ASSUME_YES=0
+SAVED_ARGS="$*"
 
 usage() {
   cat <<EOF
@@ -30,6 +31,18 @@ while [[ $# -gt 0 ]]; do
     *) echo "未知参数: $1" >&2; usage; exit 1 ;;
   esac
 done
+
+# 卸载需 root：删除用户、清理属主目录
+if [[ $EUID -ne 0 ]]; then
+  echo "卸载需要 root 权限（删除 agent/工作用户及其属主目录）。" >&2
+  echo "请使用: sudo bash $0 $SAVED_ARGS" >&2
+  exit 1
+fi
+
+# root 运行且未显式 --home：以工作用户 home 为基目录（与初始化一致，避免落到 /root）
+if [[ "${BASE_HOME}" == "$HOME" && $EUID -eq 0 ]] && id "$OWNER" &>/dev/null; then
+  BASE_HOME="$(getent passwd "$OWNER" | cut -d: -f6)"
+fi
 
 log() { printf '\033[1;34m[uninstall]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
