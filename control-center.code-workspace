@@ -22,7 +22,7 @@
     },
     {
       "name": "piekbs（源码）",
-      "path": "../wt/piekbs/main"
+      "path": "../piekbs"
     },
     {
       "name": "wt（任务 Worktree）",

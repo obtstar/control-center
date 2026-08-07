@@ -140,6 +140,23 @@ sync_repo_wt() { # $1=repo_key $2=git_url $3=常驻分支 $4=工作区绝对路�
   fi
 }
 
+# 基础设施仓（Agent 架构组件）：顶级目录工作区 + gitdir 集中 ~/.repos（同 control-center）
+sync_repo_infra() { # $1=repo_key $2=git_url $3=工作区绝对路径
+  local key="$1" url="$2" dest="$3" gitdir="$BASE_HOME/.repos/$key.git"
+  if [[ -e "$dest/.git" ]]; then
+    update_repo "$dest" "$key"
+    return 0
+  fi
+  [[ -z "$url" ]] && { warn "无远程地址，跳过: $key"; return 0; }
+  mkdir -p "$BASE_HOME/.repos"
+  if gitu "clone --separate-git-dir '$gitdir' '$url' '$dest'" >/dev/null 2>&1; then
+    log "克隆仓库: $key（gitdir: ~/.repos/$key.git）"
+    own "$dest" "$gitdir"
+  else
+    warn "克隆失败（远程为空/不可达？）: $url"
+  fi
+}
+
 sync_repos() {
   command -v git >/dev/null || { warn "未安装 git，跳过仓库同步"; return 0; }
   local yaml="$BASE_HOME/control-center/registry/repos.yaml"
@@ -152,11 +169,15 @@ sync_repos() {
     [[ -z "$url" && -n "${GIT_REMOTE_BASE:-}" ]] && url="$GIT_REMOTE_BASE/$key.git"
     case "$key" in
       control-center)
-        update_repo "$dest" "$key" ;;                    # 引导仓：普通克隆，仅 pull
+        update_repo "$dest" "$key" ;;                    # 引导仓：仅 pull
       control-wiki)
         : ;;                                            # KB 数据仓：由 init_piekbs 管理
       *)
-        sync_repo_wt "$key" "$url" "${branch:-dev}" "$dest" ;;
+        if [[ "$path" == wt/* ]]; then
+          sync_repo_wt "$key" "$url" "${branch:-dev}" "$dest"   # 项目代码：bare+worktree
+        else
+          sync_repo_infra "$key" "$url" "$dest"               # 基础设施：顶级目录
+        fi ;;
     esac
   done < <(parse_repos "$yaml")
 }
