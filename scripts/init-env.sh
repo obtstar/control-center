@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # init-env.sh — 企业内网 Agent 平台环境一键初始化（模拟综合测试环境）
-# 依据：docs/architecture/13-repo-template.md（目录布局）
-#       docs/architecture/16-linux-permissions.md（用户/权限，单人模型）
-#       docs/architecture/10-deployment.md（docker-compose 测试环境）
+# 依据：control-wiki 知识库架构文档（raw/architecture/，原 control-center/docs）
 set -euo pipefail
 
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
@@ -718,7 +716,7 @@ init_repo_skeleton() { # $1=repo 名
   # 远程已有内容则克隆（新机器接入）；否则本地初始化骨架
   clone_remote "$1" "$repo" && return 0
 
-  mkdir -p "$repo"/{docs/design/internal,src/main,tests,db/ddl,ci,openapi}
+  mkdir -p "$repo"/{src/main,tests,db/ddl,ci,openapi}
   cat > "$repo/.gitignore" <<'EOF'
 target/
 node_modules/
@@ -729,8 +727,7 @@ EOF
   cat > "$repo/README.md" <<EOF
 # $1
 
-概要/外部设计见控制中心仓库 \`control-center/docs/design/\`；
-内部设计位于本仓库 \`docs/design/internal/\`，与代码同分支、同 MR 提交。
+设计文档见 control-wiki 知识库；仓库内文档与代码同分支、同 MR 提交。
 EOF
   # git >= 2.28 支持 init -b；旧版本回退 symbolic-ref
   if ! git -C "$repo" init -b main >/dev/null 2>&1; then
@@ -815,7 +812,7 @@ init_piekbs() {
   log "PieKBS 知识库（kb_search/kb_page/kb_add，MCP 接口）"
   local gh="${GH_PROXY:+$GH_PROXY/}"
 
-  # 0. 源码仓库：~/piekbs（与 control-center、piekbs-kb 同级，不放 ~/repos）
+  # 0. 源码仓库：~/piekbs（与 control-center、control-wiki 同级，不放 ~/repos）
   local src="$BASE_HOME/piekbs"
   if [[ -d "$src/.git" ]]; then
     update_repo "$src" piekbs
@@ -842,11 +839,31 @@ init_piekbs() {
 
   # 2. KB 初始化与配置（distill 走 LiteLLM 代理，FTS 无需 embedding）
   as_target_user "$USER_ENV command -v piekbs" &>/dev/null || return 0
-  local kb="$BASE_HOME/piekbs-kb"
+  local kb="$BASE_HOME/control-wiki"
   if [[ ! -d "$kb/wiki" ]]; then
-    as_target_user "$USER_ENV PIEKBS_KB='$kb' piekbs init" \
-      && log "KB 已初始化: $kb（raw/ 投放原始文档，watcher 自动蒸馏+索引）" \
-      || warn "piekbs init 失败"
+    # 来源选择：空库新建 或 指定 Git 仓库克隆（默认 control-wiki 远程）
+    local kb_src="" ans
+    if has_tty; then
+      echo "知识库来源：" >&2
+      echo "  1) 空库（piekbs init 新建）" >&2
+      echo "  2) 指定 Git 仓库克隆（已有 KB 内容）" >&2
+      read -rp "选择 [1/2]: " ans </dev/tty
+      if [[ "$ans" == "2" ]]; then
+        local def_remote="${CONTROL_WIKI_REMOTE:-${GIT_REMOTE_BASE:+$GIT_REMOTE_BASE/control-wiki.git}}"
+        read -rp "KB Git 仓库地址${def_remote:+ [$def_remote]}: " kb_src </dev/tty
+        kb_src="${kb_src:-$def_remote}"
+      fi
+    fi
+    if [[ -n "$kb_src" ]]; then
+      as_target_user "git -c core.sshCommand='ssh -o StrictHostKeyChecking=accept-new' clone '$kb_src' '$kb'" \
+        && log "KB 已克隆: $kb_src → $kb" \
+        || { warn "KB 克隆失败，回退空库: $kb_src"; kb_src=""; }
+    fi
+    if [[ -z "$kb_src" && ! -d "$kb/wiki" ]]; then
+      as_target_user "$USER_ENV PIEKBS_KB='$kb' piekbs init" \
+        && log "KB 已初始化（空库）: $kb（raw/ 投放原始文档，watcher 自动蒸馏+索引）" \
+        || warn "piekbs init 失败"
+    fi
   fi
   if [[ -d "$kb" && ! -f "$kb/config.yaml" ]]; then
     cat > "$kb/config.yaml" <<EOF
@@ -915,7 +932,7 @@ EOF
   fi
 
   cat > "$deploy/docker-compose.yml" <<EOF
-# 模拟综合测试环境（非生产形态，见 docs/architecture/10-deployment.md）
+# 模拟综合测试环境（非生产形态，见 control-wiki raw/architecture/10）
 services:
   web:
     image: internal-control-web:latest
@@ -1144,6 +1161,6 @@ else
   fi
   step_enabled "compose 测试环境" "$SKIP_COMPOSE" && init_compose
   check_post || true
-  log "完成。布局见 docs/architecture/13-repo-template.md，权限模型见 16-linux-permissions.md"
+  log "完成。架构文档见 control-wiki 知识库（raw/architecture/，13/16 章）"
   post_init_migrate
 fi

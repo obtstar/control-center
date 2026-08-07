@@ -21,8 +21,8 @@
       "path": "../piekbs"
     },
     {
-      "name": "piekbs-kb（知识库）",
-      "path": "../piekbs-kb"
+      "name": "control-wiki（知识库）",
+      "path": "../control-wiki"
     },
     {
       "name": "wt（任务 Worktree）",

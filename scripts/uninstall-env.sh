@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # uninstall-env.sh — 卸载 init-env.sh 创建的环境（逐项交互确认后删除）
-# 依据：scripts/init-env.sh 所创建的全部产物（docs/architecture/13/16 章）
+# 依据：scripts/init-env.sh 所创建的全部产物（架构文档见 control-wiki 13/16 章）
 set -uo pipefail
 
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
@@ -104,7 +104,7 @@ rm_path "$BASE_HOME/.sdkman"     " SDKMAN!（遗留，新版已改清华直装�
 rm_path "$BASE_HOME/.local/lib"  " 用户级 Java/Maven（清华镜像直装）"
 rm_path "$BASE_HOME/.local/bin/piekbs" " piekbs 二进制"
 rm_path "$BASE_HOME/piekbs"      " PieKBS 源码仓库"
-rm_path "$BASE_HOME/piekbs-kb"   " PieKBS 知识库（raw/wiki/index）"
+rm_path "$BASE_HOME/control-wiki"   " PieKBS 知识库（raw/wiki/index）"
 rm_path "$BASE_HOME/.local/bin/uv" " uv（Python 管理）"
 rm_path "$BASE_HOME/.local/bin/uvx" " uvx"
 rm_path "$BASE_HOME/.cache/uv"   " uv 缓存"
