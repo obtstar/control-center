@@ -100,7 +100,7 @@ check_post() {
     id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
   else
     for d in control-center/orchestration control-center/registry control-center/scripts \
-             repos wt data/mysql logs deploy; do
+             .repos wt data/mysql logs deploy; do
       t_test "-d '$BASE_HOME/$d'" && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
     done
     t_test "-f '$BASE_HOME/control.env'" && chk_pass "control.env" || chk_fail "缺失 control.env"
@@ -109,10 +109,12 @@ check_post() {
     t_test "-x '$BASE_HOME/.venv/bin/python'" && chk_pass "Python venv" || chk_warn "venv 未就绪"
     t_test "-f '$BASE_HOME/deploy/docker-compose.yml'" \
       && chk_pass "docker-compose.yml" || chk_warn "compose 未生成"
-    local r
+    local r b
     for r in control-api control-web control-db; do
-      t_test "-d '$BASE_HOME/repos/$r/.git'" && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
+      t_test "-e '$BASE_HOME/wt/$r/dev/.git'" && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
     done
+    t_test "-e '$BASE_HOME/wt/piekbs/main/.git'" \
+      && chk_pass "仓库: piekbs" || chk_warn "仓库未初始化: piekbs"
     id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
     # 最小权限：工作用户不在 sudo 组
     id -nG "$OWNER" 2>/dev/null | grep -qw sudo \

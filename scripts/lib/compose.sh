@@ -34,7 +34,7 @@ services:
       - VECTOR_DB_ENDPOINT=http://milvus:19530
     volumes:
       - $BASE_HOME/wt:/wt
-      - $BASE_HOME/repos:/repos
+      - $BASE_HOME/.repos:/repos
     depends_on: [mysql, redis]
 
   worker:

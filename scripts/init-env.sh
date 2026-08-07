@@ -103,7 +103,7 @@ check_post() {
   log "环境后检（base: $BASE_HOME）"
   id "$OWNER" &>/dev/null && chk_pass "用户: $OWNER" || chk_fail "用户未创建: $OWNER"
   id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建"
-  [[ -d "$BASE_HOME/control-center/.git" ]] \
+  [[ -e "$BASE_HOME/control-center/.git" ]] \
     && chk_pass "control-center 已克隆" || chk_fail "control-center 未克隆"
   [[ -f "$BASE_HOME/control-center/scripts/setup-env.sh" ]] \
     && chk_pass "阶段二脚本就位" || chk_warn "scripts/setup-env.sh 缺失（旧版本仓库？请 pull）"
@@ -188,10 +188,11 @@ init_users_dirs() {
   fi
 
   # 目录结构（16.3：owner 控制面，agent 独占 wt/executor）
-  mkdir -p "$BASE_HOME"/{repos,wt,data/mysql,data/milvus,logs,scripts,deploy/mysql/init}
-  chmod 750 "$BASE_HOME/data" "$BASE_HOME/logs"
-  chmod 770 "$BASE_HOME/repos" "$BASE_HOME/wt"
-  chown -R "$OWNER:$ogroup" "$BASE_HOME"/{repos,data,logs,scripts,deploy}
+  # gitdir 集中 ~/.repos（bare）；常驻/任务工作区统一 ~/wt（13 章）
+  mkdir -p "$BASE_HOME"/{.repos,wt,data/mysql,data/milvus,logs,scripts,deploy/mysql/init}
+  chmod 750 "$BASE_HOME/data" "$BASE_HOME/logs" "$BASE_HOME/.repos"
+  chmod 770 "$BASE_HOME/wt"
+  chown -R "$OWNER:$ogroup" "$BASE_HOME"/{.repos,data,logs,scripts,deploy}
   chown -R "agent:$ogroup" "$BASE_HOME/wt"; chmod 770 "$BASE_HOME/wt"
   if [[ $EXECUTOR -eq 1 ]]; then
     mkdir -p "$BASE_HOME/executor"/{workspace,cache,logs}
@@ -223,7 +224,8 @@ resolve_remote_base() {
 
 clone_control_center() {
   local dest="$BASE_HOME/control-center"
-  if [[ -d "$dest/.git" ]]; then
+  local gitdir="$BASE_HOME/.repos/control-center.git"
+  if [[ -e "$dest/.git" ]]; then
     gitu "-C '$dest' pull --ff-only" >/dev/null 2>&1 \
       && log "已更新: control-center（git pull --ff-only）" \
       || warn "更新失败（非快进/网络受限），保留现状"
@@ -235,14 +237,16 @@ clone_control_center() {
     return 0
   fi
   local remote="$GIT_REMOTE_BASE/control-center.git"
-  if gitu "clone '$remote' '$dest'" >/dev/null 2>&1; then
-    log "克隆仓库: control-center（来自 $remote）"
+  # gitdir 集中 ~/.repos：--separate-git-dir（工作区 .git 为指针文件）
+  mkdir -p "$BASE_HOME/.repos"
+  if gitu "clone --separate-git-dir '$gitdir' '$remote' '$dest'" >/dev/null 2>&1; then
+    log "克隆仓库: control-center（gitdir: ~/.repos/control-center.git）"
   else
     warn "克隆失败（无权限或网络受限？）: $remote"
     return 0
   fi
   chmod 750 "$dest"
-  chown -R "$OWNER:$(id -gn "$OWNER")" "$dest"
+  chown -R "$OWNER:$(id -gn "$OWNER")" "$dest" "$gitdir"
 }
 
 # ── 阶段二钩子（首次登录自动触发）─────────────────────────────

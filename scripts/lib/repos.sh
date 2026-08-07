@@ -25,8 +25,8 @@ clone_remote() { # $1=repo 名 $2=目标目录；0=已克隆 1=未克隆（调�
   return 1
 }
 
-init_repo_skeleton() { # $1=repo 名 $2=相对 home 的路径（默认 repos/$1）
-  local repo="$BASE_HOME/${2:-repos/$1}"
+init_repo_skeleton() { # $1=repo 名 $2=相对 home 的路径（默认 wt/$1/dev）
+  local repo="$BASE_HOME/${2:-wt/$1/dev}"
   if [[ -d "$repo/.git" ]]; then
     update_repo "$repo" "$1"
     return 0
@@ -98,39 +98,65 @@ update_repo() { # $1=路径 $2=名称
   fi
 }
 
-# registry/repos.yaml 清单解析：输出 repo_key<TAB>path<TAB>git_url
+# registry/repos.yaml 清单解析：输出 repo_key<TAB>path<TAB>git_url<TAB>default_branch
 parse_repos() {
   awk '
     /^  - repo_key:/ { key=$3 }
     /^    path:/     { path=$2 }
-    /^    git_url:/  { url=$2; if (key && path && url) { print key "\t" path "\t" url; key=path=url="" } }
+    /^    git_url:/  { url=$2 }
+    /^    default_branch:/ { branch=$2
+      if (key && path && url) { print key "\t" path "\t" url "\t" branch; key=path=url=branch="" } }
   ' "$1"
 }
 
 # 按 registry/repos.yaml 清单同步全部仓库（克隆/pull/骨架回退）
+# 按 registry/repos.yaml 清单同步全部仓库
+# 代码仓统一 bare+worktree 模型：gitdir 集中 ~/.repos/<key>.git，
+# 常驻工作区 ~/wt/<key>/<branch>/（远程为空/不可达时骨架回退为原地 init）
+sync_repo_wt() { # $1=repo_key $2=git_url $3=常驻分支 $4=工作区绝对路径
+  local key="$1" url="$2" branch="$3" dest="$4"
+  local bare="$BASE_HOME/.repos/$key.git"
+  if [[ ! -d "$bare" ]]; then
+    [[ -z "$url" ]] && { init_repo_skeleton "$key" "${dest#$BASE_HOME/}"; return 0; }
+    if ! gitu "clone --bare '$url' '$bare'" >/dev/null 2>&1; then
+      warn "bare 克隆失败（远程为空/不可达），骨架回退: $key"
+      init_repo_skeleton "$key" "${dest#$BASE_HOME/}"
+      return 0
+    fi
+    log "bare 克隆: $key → ~/.repos/$key.git"
+  else
+    gitu "-C '$bare' fetch --prune" >/dev/null 2>&1 || true
+  fi
+  own "$bare"
+  if [[ ! -e "$dest/.git" ]]; then
+    if gitu "-C '$bare' worktree add '$dest' '$branch'" >/dev/null 2>&1 \
+       || gitu "-C '$bare' worktree add '$dest'" >/dev/null 2>&1; then
+      log "常驻工作区: $dest（$branch）"
+    else
+      warn "worktree 创建失败: $dest"
+    fi
+  else
+    update_repo "$dest" "$key"
+  fi
+}
+
 sync_repos() {
   command -v git >/dev/null || { warn "未安装 git，跳过仓库同步"; return 0; }
   local yaml="$BASE_HOME/control-center/registry/repos.yaml"
   [[ -f "$yaml" ]] || { warn "注册表不存在: $yaml（先完成阶段一克隆 control-center）"; return 0; }
   resolve_remote_base
-  local key path url dest
-  while IFS=$'\t' read -r key path url; do
+  mkdir -p "$BASE_HOME/.repos"
+  local key path url branch dest
+  while IFS=$'\t' read -r key path url branch; do
     dest="$BASE_HOME/$path"
     [[ -z "$url" && -n "${GIT_REMOTE_BASE:-}" ]] && url="$GIT_REMOTE_BASE/$key.git"
     case "$key" in
       control-center)
-        update_repo "$dest" "$key" ;;
+        update_repo "$dest" "$key" ;;                    # 引导仓：普通克隆，仅 pull
       control-wiki)
-        : ;;  # KB 由 init_piekbs 管理（初始化/config/serve）
+        : ;;                                            # KB 数据仓：由 init_piekbs 管理
       *)
-        if [[ -d "$dest/.git" ]]; then
-          update_repo "$dest" "$key"
-        elif [[ -n "$url" ]] && gitu "clone '$url' '$dest'" >/dev/null 2>&1; then
-          log "克隆仓库: $key（来自 $url）"
-          own "$dest"
-        else
-          init_repo_skeleton "$key" "$path"   # 骨架回退（可选推送）
-        fi ;;
+        sync_repo_wt "$key" "$url" "${branch:-dev}" "$dest" ;;
     esac
   done < <(parse_repos "$yaml")
 }

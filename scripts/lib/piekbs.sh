@@ -5,14 +5,7 @@ init_piekbs() {
   log "PieKBS 知识库（kb_search/kb_page/kb_add，MCP 接口）"
   local gh="${GH_PROXY:+$GH_PROXY/}"
 
-  # 0. 源码仓库：~/piekbs（与 control-center、control-wiki 同级，不放 ~/repos）
-  local src="$BASE_HOME/piekbs"
-  if [[ -d "$src/.git" ]]; then
-    update_repo "$src" piekbs
-  else
-    clone_remote piekbs "$src" \
-      || warn "piekbs 源码未克隆（可后续手动: git clone <remote> $src）"
-  fi
+  # 0. 源码仓库由 sync_repos 统一管理（bare: ~/.repos/piekbs.git → ~/wt/piekbs/main）
 
   # 1. 二进制：GitHub release（linux-amd64，经 GH_PROXY）
   if as_target_user "$USER_ENV command -v piekbs" &>/dev/null; then
