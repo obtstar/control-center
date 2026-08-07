@@ -480,7 +480,8 @@ init_mirrors() {
   # npm：npmmirror（用户级，需已装 npm）
   if as_target_user 'command -v npm' &>/dev/null; then
     as_target_user 'npm config set registry https://registry.npmmirror.com' \
-      && log "npm 镜像: https://registry.npmmirror.com（用户级 npm config）"
+      && log "npm 镜像: https://registry.npmmirror.com（用户级 npm config）" \
+      || warn "npm 镜像配置失败（可手动: npm config set registry https://registry.npmmirror.com）"
   else
     warn "npm 未安装，跳过 npm 镜像（安装 Node 后可手动执行: npm config set registry https://registry.npmmirror.com）"
   fi
@@ -508,10 +509,16 @@ EOF
   [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$uv_conf"
   log "uv 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$uv_conf/uv.toml）"
 
+  # ~/.config 本身归属工作用户（pip/uv 子目录由 root 创建，父目录不能留 root 所有）
+  if [[ $EUID -eq 0 && -d "$BASE_HOME/.config" ]]; then
+    chown "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/.config"
+  fi
+
   # Go：goproxy.cn 模块代理（已装 Go 时写入 go env）
   if as_target_user "$USER_ENV command -v go" &>/dev/null; then
     as_target_user "$USER_ENV mkdir -p \"\$HOME/.config/go\" && go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn" \
-      && log "Go 代理: https://goproxy.cn,direct（go env -w）"
+      && log "Go 代理: https://goproxy.cn,direct（go env -w）" \
+      || warn "Go 代理配置失败（可手动: go env -w GOPROXY=https://goproxy.cn,direct）"
   fi
 }
 
