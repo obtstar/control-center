@@ -29,8 +29,8 @@ usage() {
   PIP_INDEX_URL     pip 镜像（如 http://pypi.internal/simple），
                     未设置时默认清华镜像 https://pypi.tuna.tsinghua.edu.cn/simple
   LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
-  GIT_REMOTE_BASE   仓库远程地址前缀（如 git@github.com:obtstar），
-                    设置后骨架仓库自动添加 origin 并推送 main/dev
+  GIT_REMOTE_BASE   仓库远程地址前缀（如 git@github.com:obtstar）：
+                    远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev
 EOF
 }
 
@@ -323,6 +323,26 @@ EOF
 init_repo_skeleton() { # $1=repo 名
   local repo="$BASE_HOME/repos/$1"
   [[ -d "$repo/.git" ]] && { log "仓库已存在，跳过: $1"; return 0; }
+
+  # 远程已有内容则克隆（新机器接入）；远程为空/未配置则本地初始化骨架
+  local remote="" refs=""
+  [[ -n "${GIT_REMOTE_BASE:-}" ]] && remote="$GIT_REMOTE_BASE/$1.git"
+  [[ -n "$remote" ]] && refs="$(git ls-remote "$remote" 2>/dev/null || true)"
+  if [[ -n "$refs" ]]; then
+    if [[ -n "$(ls -A "$repo" 2>/dev/null || true)" ]]; then
+      warn "目录非空且无 .git，跳过克隆: $repo"
+      return 0
+    fi
+    rm -rf "$repo"
+    if git clone "$remote" "$repo" >/dev/null 2>&1; then
+      grep -q 'refs/heads/dev$' <<<"$refs" && git -C "$repo" checkout -q dev 2>/dev/null || true
+      log "克隆仓库: $1（来自 $remote）"
+    else
+      warn "克隆失败（无权限或网络受限？）: $remote"
+    fi
+    return 0
+  fi
+
   mkdir -p "$repo"/{docs/design/internal,src/main,tests,db/ddl,ci,openapi}
   cat > "$repo/.gitignore" <<'EOF'
 target/

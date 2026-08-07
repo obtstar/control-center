@@ -39,7 +39,7 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | `NPM_REGISTRY` | npm 内网镜像（安装 pi/openskills 用） |
 | `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
-| `GIT_REMOTE_BASE` | 仓库远程地址前缀（如 `git@github.com:obtstar`），设置后骨架仓库自动添加 origin 并推送 main/dev |
+| `GIT_REMOTE_BASE` | 仓库远程地址前缀（如 `git@github.com:obtstar`）：远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev |
 
 ### 远程校验命令
 
