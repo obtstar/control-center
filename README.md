@@ -1,16 +1,19 @@
 # control-center
 
-Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本（**无代码实现**）。
+Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本（**无业务代码**）。
 架构文档已迁至 **control-wiki 知识库**（`raw/architecture/`，PieKBS 检索）。
 
 ## 目录
 
-| 目录 | 内容 |
+| 路径 | 内容 |
 |-----|------|
 | `orchestration/` | 任务编排配置：`prompts/`、`skills/`、`workflows/` |
-| `registry/` | 注册表：`repos.yaml`（仓库注册）、`executors.yaml`（执行节点登记） |
-| `scripts/` | 环境初始化脚本 `init-env.sh`、卸载脚本 `uninstall-env.sh` |
-| `control-center.code-workspace` | VS Code 多根目录工作区（control-center + 平台仓库 + Worktree 根），WSL 中用 `code control-center.code-workspace` 打开 |
+| `registry/` | 注册表：`repos.yaml`（环境拓扑 + 仓库注册）、`executors.yaml`（执行节点登记） |
+| `scripts/init-env.sh` | **阶段一**引导脚本（单文件，`curl \| bash` 分发） |
+| `scripts/setup-env.sh` | **阶段二**安装入口 |
+| `scripts/lib/` | 阶段二模块（common/check/mirrors/repos/toolchain/piekbs/agent/compose/executor，均 <300 行） |
+| `scripts/uninstall-env.sh` | 卸载脚本 |
+| `control-center.code-workspace` | VS Code 多根目录工作区，`code control-center.code-workspace` 打开 |
 
 ## 环境初始化（两阶段）
 
@@ -23,7 +26,7 @@ Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本�
 curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | sudo bash -s --
 
 # 执行节点（办公 PC）
-... | sudo bash -s -- --executor
+curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | sudo bash -s -- --executor
 
 # 仅环境校验（不初始化，非 root 也可用）
 bash scripts/init-env.sh --check
@@ -39,68 +42,59 @@ bash ~/control-center/scripts/setup-env.sh --executor   # 执行节点分支
 bash ~/control-center/scripts/setup-env.sh --check      # 仅校验
 ```
 
-模块结构：`scripts/lib/{common,check,mirrors,repos,toolchain,piekbs,agent,compose,executor}.sh`（入口与各模块均 <300 行）。仓库同步由 **`registry/repos.yaml` 清单驱动**（control-center 仅 pull，control-api/web/db 克隆或骨架，piekbs 顶级目录，control-wiki 由 PieKBS 步骤管理）。
+仓库同步由 **`registry/repos.yaml` 清单驱动**：control-center 仅 pull，control-api/web/db 克隆或本地骨架，piekbs 落顶级目录 `~/piekbs`，control-wiki 由 PieKBS 步骤管理。
 
-### 卸载（scripts/uninstall-env.sh）
-
-### 交互式流程
-
-tty 交互运行时依次询问：**工作用户**（默认 dev）→ **节点模式**（编排/执行）→ **各步骤是否执行**（目录结构/用户配置/镜像/仓库/工具链/venv/Agent 工具/compose，回车默认 Y）→ 工具链逐项**安装/升级**（默认 N）→ **国内镜像与 GitHub 代理**（默认 Y）→ 已存在文件/非空目录**覆盖确认**（默认保留）。
-完成后若是从其他账号 sudo 初始化，会询问是否**迁移其 `~/control-center` 克隆到工作用户**（有未提交更改时自动取消）以及是否**立即 `su - dev` 切换**。
-提示经 `/dev/tty` 读取，`curl | bash` 管道执行也可交互；仅完全无终端（CI）时走安全默认：参数取 flag/env、步骤全执行、覆盖与升级跳过。命令行 flag 优先级高于交互询问。
-
-### 选项
+### 选项（阶段一透传阶段二）
 
 | 选项 | 说明 |
 |-----|------|
-| `--owner NAME` | 工作用户（默认 `dev`；root 运行且不存在时自动创建，其 home 即环境基目录） |
-| `--executor` | 执行节点模式 |
-| `--control-api URL` | 编排节点地址（executor 模式，不传则交互询问） |
-| `--skip-users` / `--skip-repos` / `--skip-compose` / `--skip-tooling` | 分步跳过 |
-| `--check` | **仅环境校验，不执行初始化**（非 root 仅支持此模式） |
+| `--owner NAME` | 工作用户（默认 `dev`；阶段一自动创建，其 home 即环境基目录） |
+| `--executor` | 执行节点分支 |
+| `--control-api URL` | 编排节点地址（executor 分支，不传则交互询问） |
+| `--skip-repos` / `--skip-compose` / `--skip-tooling` | 分步跳过（阶段二） |
+| `--check` | **仅环境校验**（阶段一非 root 仅支持此模式；阶段二任意用户可用） |
 
-初始化过程中会逐项询问安装**用户级**语言/框架（默认 `N` 回车跳过）：
-Java+Maven（**清华镜像直装** Temurin 17 + Maven，落 `~/.local`，不依赖 SDKMAN——其无国内镜像）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、**Go（golang.google.cn 用户级，独立工具）**、**PieKBS（Agent 知识搜索引擎，MCP 接口，`~/control-wiki` 自动 git 版本化并可推送 `control-wiki` 远程仓，distill 走 LiteLLM `cheap` 模型）**、Docker rootless（需已装 docker）。
-全部落在工作用户 home，不污染系统目录。`.venv` 由 `uv venv` 创建。
+### 交互式流程
 
-随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）、uv→清华（`~/.config/uv/uv.toml`）、Go 模块→`goproxy.cn`（`go env -w`）；并可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`），作用于 nvm/uv 安装器下载（nvm 的 Node 二进制固定走 `npmmirror.com/mirrors/node`）。
+tty 交互运行：阶段一询问**工作用户**（默认 dev，非法输入拒绝）→ **节点模式** → **远程协议**（ssh/http）→ **新用户密码/SSH 公钥**；阶段二询问**各步骤是否执行**（回车默认 Y）→ **国内镜像与 GitHub 代理**（默认 Y）→ 工具链逐项**安装/升级**（默认 N）→ 已存在文件/非空目录**覆盖确认**（默认保留）。
+提示经 `/dev/tty` 读取，`curl | bash` 管道执行也可交互；完全无终端（CI）走安全默认。命令行 flag 优先级高于交互询问。
 
-pi 初始化时生成 `~/.pi/settings.json`：**访问范围限定工作用户 home**（`allow_paths`），`.ssh`/`.config`/`control.env`/`deploy/.env` 等敏感路径列入 `protected_paths`（16 章纵深防御）；并可选安装 **pi-di18n** 切换中文界面（`locale: zh-CN`）。
+### 用户级工具链（阶段二逐项询问，默认 N 跳过）
+
+Java+Maven（**清华镜像直装** Temurin 17 + Maven，`~/.local`）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、**Go（golang.google.cn，独立工具）**、**PieKBS（Agent 知识搜索引擎，MCP；KB 落 `~/control-wiki` 并 git 版本化推送 control-wiki 远程仓，distill 走 LiteLLM `cheap` 模型）**、Docker rootless（需已装 docker）。
+全部落在工作用户 home，不污染系统目录。
+
+**国内镜像**（默认 Y）：npm→`registry.npmmirror.com`、pip→清华、uv→清华、Go 模块→`goproxy.cn`；可输入 **GitHub 加速代理前缀**（如 `https://gh.dpik.top`）作用于 nvm/uv/piekbs 下载。
+
+pi 初始化生成 `~/.pi/settings.json`：**访问范围限定工作用户 home**，敏感路径列入 `protected_paths`；可选 **pi-di18n** 中文界面（`locale: zh-CN`）。
 
 ### 环境变量
 
 | 变量 | 说明 |
 |-----|------|
-| `NPM_REGISTRY` | npm 镜像（pi/openskills/corepack 用），未设置时默认 `https://registry.npmmirror.com` |
-| `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
-| `UV_INDEX_URL` | uv 镜像（uv venv/pip 用），未设置时默认清华镜像 |
-| `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
-| `GIT_REMOTE_BASE` | 仓库远程地址全量前缀：远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev |
-| `GIT_PROTO` / `GIT_REMOTE_HOST` | 未设 `GIT_REMOTE_BASE` 时按协议构造前缀：`ssh`→`git@HOST`、`http`→`https://HOST`（HOST 默认 `github.com/obtstar`）；交互运行时会提示 1) ssh / 2) http 二选一 |
-| `GH_PROXY` | GitHub 加速代理前缀（如 `https://gh.dpik.top`），nvm/uv 安装器下载走代理；交互镜像确认时也可输入 |
+| `NPM_REGISTRY` | npm 镜像（默认 `https://registry.npmmirror.com`） |
+| `PIP_INDEX_URL` / `UV_INDEX_URL` | pip / uv 镜像（默认清华） |
+| `GH_PROXY` | GitHub 加速代理前缀（如 `https://gh.dpik.top`） |
 | `NVM_NODEJS_ORG_MIRROR` | nvm 下载 Node 的镜像（默认 `https://npmmirror.com/mirrors/node`） |
+| `GIT_PROTO` / `GIT_REMOTE_HOST` / `GIT_REMOTE_BASE` | 仓库远程构造（ssh/http，默认 `github.com/obtstar`） |
 | `CONTROL_WIKI_REMOTE` | PieKBS 知识库远程仓（默认 `$GIT_REMOTE_BASE/control-wiki.git`） |
+| `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
 
 ### 远程校验命令
 
-不初始化、只巡检目标机器环境（预检 + 后检）：
-
 ```bash
-# 方式一：ssh 远程执行（脚本已在目标机，随 control-center 仓库克隆）
-ssh user@pc-01 'bash ~/control-center/scripts/init-env.sh --check'
-
-# 方式二：从 Git 仓库拉取最新脚本直接执行（不落盘）
-curl -fsSL https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | bash -s -- --check
-
-# 方式三：远程拉取并执行
+# 阶段一校验（任意机器）
 ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/obtstar/control-center/main/scripts/init-env.sh | bash -s -- --check'
+
+# 阶段二校验（已初始化机器，以 dev 执行）
+ssh dev@pc-01 'bash ~/control-center/scripts/setup-env.sh --check'
 ```
 
-输出三级：**PASS** 正常 / **WARN** 可择情处理（如 token 占位符、可选工具缺失）/ **FAIL** 必须修复。
+输出三级：**PASS** 正常 / **WARN** 可择情处理 / **FAIL** 必须修复。
 
 ### 卸载（scripts/uninstall-env.sh）
 
-逐项提示并删除初始化创建的全部产物（compose 容器 → 目录/配置 → bashrc 挂载行 → `agent` 用户），未确认项一律保留：
+逐项提示删除全部产物（compose 容器 → 目录/配置 → bashrc 挂载与钩子 → 用户），未确认项一律保留：
 
 ```bash
 sudo bash scripts/uninstall-env.sh              # 编排节点，逐项交互确认（需 root）
@@ -108,16 +102,13 @@ sudo bash scripts/uninstall-env.sh --executor   # 执行节点（仅删 agent �
 sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
 ```
 
-**卸载需 root**（删除用户及其属主目录）；基目录由 `--owner` 推导（默认 `dev` 的 home）。
-
-删除 `control-center` 前会检查未提交/未推送的 Git 更改并告警；用户清理为
-**工作用户（默认 `dev`，`--owner` 指定）+ `agent` 两个用户**，工作用户 home
-即环境基目录时连 home 一并删除（`userdel -r`）。
+删除 `control-center` 前检查未提交/未推送的 Git 更改并告警；用户清理为**工作用户 + `agent`**，工作用户 home 即环境基目录时连 home 一并删除（`userdel -r`）。
 
 ### 注意事项
 
-- 初始化需 root（新建工作用户 `dev` 与 `agent`、设置目录属主）；非 root 仅支持 `--check` 校验
-- 基目录由 `--owner` 推导（默认 `dev` 的 home），无其他覆盖入口
+- 阶段一需 root（创建用户、目录属主）；阶段二以工作用户身份运行，**无需 root**
+- 基目录恒为 `/home/<owner>`（默认 `dev`），无其他覆盖入口
 - Python 无需系统级准备：版本与 `.venv` 均由 uv 管理
+- 工具链全部用户级（nvm/uv/Go/`~/.local`），卸载时随 home 清理
 - executor 初始化后：在 `registry/executors.yaml` 登记本机 → 将签发的 token 写入 `~/executor/.env` 的 `EXECUTOR_TOKEN` → 启动 executor 服务
 - 密钥只进 `.env`（600 权限），不进 bashrc、不进 Git
