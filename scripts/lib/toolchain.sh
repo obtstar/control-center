@@ -122,21 +122,8 @@ init_env_config() {
   if [[ -f "$env_file" ]] && ! confirm_overwrite "$env_file"; then
     log "保留已有配置: $env_file"
   else
-  log "写入环境变量配置: $env_file"
-  cat > "$env_file" <<EOF
-# control.env — Agent 平台环境变量（13/15 章），由 init-env.sh 生成
-export CONTROL_HOME="$BASE_HOME/control-center"
-export REPOS_ROOT="$BASE_HOME/repos"
-export WORKTREE_ROOT="$BASE_HOME/wt"
-export CONTROL_DATA="$BASE_HOME/data"
-export CONTROL_LOGS="$BASE_HOME/logs"
-export LITELLM_ENDPOINT="$LITELLM_ENDPOINT"
-# export LITELLM_API_KEY=    # 密钥不落盘，按需填入或经密钥管理注入
-# export NPM_REGISTRY=       # npm 内网镜像，如 http://npm.internal:4873
-# export PIP_INDEX_URL=      # pip 内网镜像，如 http://pypi.internal/simple
-EOF
-  chmod 600 "$env_file"
-  # root(sudo) 运行时归属工作用户，否则 600 权限下 owner 无法 source
+  log "写入环境变量配置: $env_file（模板渲染）"
+  render_tmpl "control.env.tmpl" "$env_file" 600
   own "$env_file"
   fi
 
@@ -146,6 +133,13 @@ EOF
     grep -qF "control.env" "$bashrc" 2>/dev/null || \
       echo '[[ -f ~/control.env ]] && source ~/control.env' >> "$bashrc"
   fi
+
+  # systemd 用户会话环境（environment.d，piekbs/executor 用户服务可读）
+  local envd="$BASE_HOME/.config/environment.d"
+  mkdir -p "$envd"
+  render_tmpl "environment.d/99-control.conf" "$envd/99-control.conf" 644 \
+    && log "已生成 $envd/99-control.conf（systemd 用户环境，重登录生效）"
+  own "$envd"
 }
 
 # ── 4. Python 虚拟环境（uv 管理）──────────────────────────────

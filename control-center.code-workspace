@@ -9,24 +9,20 @@
       "path": "../control-wiki"
     },
     {
-      "name": "control-api",
+      "name": "control-api(dev)",
       "path": "../wt/control-api/dev"
     },
     {
-      "name": "control-web",
+      "name": "control-web(dev)",
       "path": "../wt/control-web/dev"
     },
     {
-      "name": "control-db",
+      "name": "control-db(dev)",
       "path": "../wt/control-db/dev"
     },
     {
       "name": "piekbs（源码）",
       "path": "../piekbs"
-    },
-    {
-      "name": "wt（任务 Worktree）",
-      "path": "../wt"
     }
   ],
   "settings": {

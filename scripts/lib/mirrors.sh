@@ -19,26 +19,19 @@ init_mirrors() {
     warn "npm 未安装，跳过 npm 镜像（安装 Node 后可手动执行: npm config set registry https://registry.npmmirror.com）"
   fi
 
-  # pip：清华镜像（写工作用户的 pip.conf）
+  # pip：清华镜像（模板落 ~/.config/pip/pip.conf）
   local pip_conf="$BASE_HOME/.config/pip"
   mkdir -p "$pip_conf"
-  cat > "$pip_conf/pip.conf" <<'EOF'
-[global]
-index-url = https://pypi.tuna.tsinghua.edu.cn/simple
-trusted-host = pypi.tuna.tsinghua.edu.cn
-timeout = 30
-EOF
+  cp "${TMPL_DIR:-$SCRIPT_DIR/templates}/pip.conf" "$pip_conf/pip.conf"
+  chmod 644 "$pip_conf/pip.conf"
   own "$pip_conf"
   log "pip 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$pip_conf/pip.conf）"
 
-  # uv：清华镜像（uv.toml）
+  # uv：清华镜像（模板落 ~/.config/uv/uv.toml）
   local uv_conf="$BASE_HOME/.config/uv"
   mkdir -p "$uv_conf"
-  cat > "$uv_conf/uv.toml" <<'EOF'
-[[index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-default = true
-EOF
+  cp "${TMPL_DIR:-$SCRIPT_DIR/templates}/uv.toml" "$uv_conf/uv.toml"
+  chmod 644 "$uv_conf/uv.toml"
   own "$uv_conf"
   log "uv 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$uv_conf/uv.toml）"
 

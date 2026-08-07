@@ -52,23 +52,7 @@ init_piekbs() {
     fi
   fi
   if [[ -d "$kb" && ! -f "$kb/config.yaml" ]]; then
-    cat > "$kb/config.yaml" <<EOF
-server:
-  host: "127.0.0.1"
-  port: 8766
-  api_key: ""
-
-distill:
-  base_url: "$LITELLM_ENDPOINT/v1"
-  token: ""
-  model: "cheap"
-  api_type: "openai"
-  workers: 2
-
-ui:
-  language: "zh-CN"
-EOF
-    chmod 600 "$kb/config.yaml"
+    render_tmpl "piekbs-config.yaml.tmpl" "$kb/config.yaml" 600
     own "$kb"
     log "已生成 $kb/config.yaml（distill → LiteLLM cheap 模型，token 需填入）"
     log "启动: piekbs serve（127.0.0.1:8766；局域网经 ssh -L 8766:localhost:8766 访问）"

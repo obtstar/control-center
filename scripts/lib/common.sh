@@ -89,3 +89,29 @@ CHECK_FAIL=0
 chk_pass() { printf '  \033[1;32m[PASS]\033[0m %s\n' "$*"; }
 chk_warn() { printf '  \033[1;33m[WARN]\033[0m %s\n' "$*"; }
 chk_fail() { printf '  \033[1;31m[FAIL]\033[0m %s\n' "$*"; CHECK_FAIL=$((CHECK_FAIL+1)); }
+
+# 模板渲染：envsubst 优先，sed 兜底；$3=目标权限（可选）
+# 模板目录默认 scripts/templates（TMPL_DIR 可覆盖）
+render_tmpl() { # $1=模板名（相对 TMPL_DIR）$2=目标路径 $3=权限（可选）
+  local tmpl="${TMPL_DIR:-$SCRIPT_DIR/templates}/$1" dest="$2" mode="${3:-}"
+  [[ -f "$tmpl" ]] || { warn "模板不存在: $tmpl"; return 1; }
+  local varlist='$BASE_HOME $OWNER $LITELLM_ENDPOINT $CONTROL_API $PIP_INDEX_URL $UV_INDEX_URL $NPM_REGISTRY'
+  if command -v envsubst &>/dev/null; then
+    BASE_HOME="$BASE_HOME" OWNER="$OWNER" \
+    LITELLM_ENDPOINT="$LITELLM_ENDPOINT" CONTROL_API="${CONTROL_API:-}" \
+    PIP_INDEX_URL="$PIP_INDEX_URL" UV_INDEX_URL="$UV_INDEX_URL" \
+    NPM_REGISTRY="$NPM_REGISTRY" \
+      envsubst "$varlist" < "$tmpl" > "$dest"
+  else
+    sed -e "s|\$BASE_HOME|$BASE_HOME|g" \
+        -e "s|\$OWNER|$OWNER|g" \
+        -e "s|\$LITELLM_ENDPOINT|$LITELLM_ENDPOINT|g" \
+        -e "s|\$CONTROL_API|${CONTROL_API:-}|g" \
+        -e "s|\$PIP_INDEX_URL|$PIP_INDEX_URL|g" \
+        -e "s|\$UV_INDEX_URL|$UV_INDEX_URL|g" \
+        -e "s|\$NPM_REGISTRY|$NPM_REGISTRY|g" \
+        "$tmpl" > "$dest"
+  fi
+  [[ -n "$mode" ]] && chmod "$mode" "$dest"
+  return 0
+}

@@ -66,6 +66,7 @@ done
 
 # ── 加载模块 ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TMPL_DIR="$SCRIPT_DIR/templates"   # 配置模板目录（render_tmpl 使用）
 for m in common check mirrors repos toolchain piekbs agent compose executor; do
   # shellcheck source=lib/*.sh
   source "$SCRIPT_DIR/lib/$m.sh"
