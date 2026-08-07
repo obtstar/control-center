@@ -22,6 +22,11 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | 编排节点（第一台） | 目录结构、Linux 用户、venv、pi/openskills、仓库骨架、compose 测试环境 | `sudo bash scripts/init-env.sh` |
 | 执行节点（后续 PC） | executor 工作区、`agent` 账号、工具链 | `sudo bash scripts/init-env.sh --executor`（交互询问服务端地址） |
 
+### 交互式流程
+
+tty 交互运行时依次询问：**工作用户**（默认 dev）→ **节点模式**（编排/执行）→ **各步骤是否执行**（目录结构/用户配置/工具链/镜像/venv/Agent 工具/仓库/compose，回车默认 Y）→ 工具链逐项**安装/升级**（默认 N）→ **国内镜像**（默认 Y）→ 已存在文件**覆盖确认**（默认保留）。
+非交互（管道/ssh 无 tty）全部走安全默认：参数取 flag/env、步骤全执行、覆盖与升级跳过。命令行 flag 优先级高于交互询问。
+
 ### 选项
 
 | 选项 | 说明 |

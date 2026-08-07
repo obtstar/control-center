@@ -8,6 +8,8 @@ set -euo pipefail
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）
 BASE_HOME="/home/$OWNER"     # 基目录恒为工作用户 home，与执行者无关
 SAVED_ARGS="$*"
+OWNER_SET=0
+EXECUTOR_SET=0
 SKIP_USERS=0
 SKIP_COMPOSE=0
 SKIP_REPOS=0
@@ -50,8 +52,8 @@ export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
 export UV_INDEX_URL="${UV_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --owner) OWNER="$2"; shift 2 ;;
-    --executor) EXECUTOR=1; shift ;;
+    --owner) OWNER="$2"; OWNER_SET=1; shift 2 ;;
+    --executor) EXECUTOR=1; EXECUTOR_SET=1; shift ;;
     --control-api) CONTROL_API="$2"; shift 2 ;;
     --skip-users) SKIP_USERS=1; shift ;;
     --skip-repos) SKIP_REPOS=1; shift ;;
@@ -69,6 +71,32 @@ if [[ $CHECK_ONLY -eq 0 && $EUID -ne 0 ]]; then
   echo "请使用: sudo -E bash $0 $SAVED_ARGS" >&2
   exit 1
 fi
+
+# ── 交互式参数（tty 且未显式指定时询问；非交互用 flag/env 直给）─
+interactive_setup() {
+  [[ -t 0 ]] || return 0
+  local ans
+  if [[ $OWNER_SET -eq 0 ]]; then
+    read -rp "工作用户 [$OWNER]: " ans
+    if [[ -n "$ans" && "$ans" != "$OWNER" ]]; then
+      OWNER="$ans"
+      BASE_HOME="/home/$OWNER"
+    fi
+  fi
+  if [[ $EXECUTOR_SET -eq 0 ]]; then
+    read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans
+    [[ "$ans" == "2" ]] && EXECUTOR=1
+  fi
+}
+
+# 分步执行确认：flag 跳过 > 非交互默认执行 > 交互询问（回车默认 Y）
+step_enabled() { # $1=步骤名 $2=skip flag
+  [[ "$2" == "1" ]] && { log "已跳过（--skip）: $1"; return 1; }
+  [[ -t 0 ]] || return 0
+  local ans
+  read -rp "执行步骤「$1」？[Y/n] " ans
+  [[ ! "$ans" =~ ^[nN](o)?$ ]]
+}
 
 log() { printf '\033[1;34m[init]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
@@ -307,10 +335,15 @@ as_target_user() { # 以工作用户身份执行：root→su；本人→直接�
   fi
 }
 
-try_install() { # $1=名称 $2=检测命令 $3=安装命令（用户级）
-  local name="$1" check="$2" cmd="$3"
-  if [[ -n "$check" ]] && as_target_user "command -v $check" &>/dev/null; then
-    log "$name 已安装，跳过"
+try_install() { # $1=名称 $2=检测命令 $3=安装命令 $4=升级命令（可选）
+  local name="$1" check="$2" cmd="$3" upcmd="${4:-}"
+  if [[ -n "$check" ]] && as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; command -v $check" &>/dev/null; then
+    if [[ -n "$upcmd" ]] && confirm_opt "$name 已安装，是否升级？"; then
+      log "升级 $name ..."
+      as_target_user "$upcmd" && log "$name 升级完成" || warn "$name 升级失败（保留现有版本）"
+    else
+      log "$name 已安装，跳过"
+    fi
     return 0
   fi
   if confirm_opt "安装 $name？"; then
@@ -329,15 +362,19 @@ init_toolchain() {
     'curl -fsSL https://get.sdkman.io | bash \
       && sed -i "s/sdkman_auto_answer=false/sdkman_auto_answer=true/" "$HOME/.sdkman/etc/config" \
       && source "$HOME/.sdkman/bin/sdkman-init.sh" \
-      && sdk install java && sdk install maven'
+      && sdk install java && sdk install maven' \
+    'source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk upgrade java && sdk upgrade maven'
   try_install "Node.js LTS（nvm）" node \
     'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash \
-      && source "$HOME/.nvm/nvm.sh" && nvm install --lts'
+      && source "$HOME/.nvm/nvm.sh" && nvm install --lts' \
+    'source "$HOME/.nvm/nvm.sh" && nvm install --lts --reinstall-packages-from=current'
   try_install "uv（Python 版本/包管理）" uv \
-    'curl -fsSL https://astral.sh/uv/install.sh | sh'
+    'curl -fsSL https://astral.sh/uv/install.sh | sh' \
+    'export PATH="$HOME/.local/bin:$PATH"; uv self update'
   try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
     'source "$HOME/.nvm/nvm.sh" 2>/dev/null \
-      && corepack enable && corepack prepare pnpm@latest --activate'
+      && corepack enable && corepack prepare pnpm@latest --activate' \
+    'source "$HOME/.nvm/nvm.sh" 2>/dev/null && corepack prepare pnpm@latest --activate'
   if as_target_user 'command -v docker' &>/dev/null; then
     try_install "Docker rootless 模式（用户级守护进程）" "" \
       'dockerd-rootless-setuptool.sh install'
@@ -447,7 +484,13 @@ install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 c
 
   # 5.1 pi（Earendil Pi Coding Agent，02 章执行层核心工具）
   if command -v pi &>/dev/null; then
-    log "pi 已安装，跳过"
+    if confirm_opt "pi 已安装，是否升级？"; then
+      npm update -g --ignore-scripts @earendil-works/pi-coding-agent \
+        ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+        && log "pi 升级完成" || warn "pi 升级失败（保留现有版本）"
+    else
+      log "pi 已安装，跳过"
+    fi
   elif command -v npm &>/dev/null; then
     npm install -g --ignore-scripts @earendil-works/pi-coding-agent \
       ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
@@ -475,7 +518,13 @@ EOF
 
   # 5.3 openskills（07.3：SKILL.md 技能管理）
   if command -v openskills &>/dev/null; then
-    log "openskills 已安装，跳过"
+    if confirm_opt "openskills 已安装，是否升级？"; then
+      npm update -g --ignore-scripts openskills \
+        ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
+        && log "openskills 升级完成" || warn "openskills 升级失败（保留现有版本）"
+    else
+      log "openskills 已安装，跳过"
+    fi
   elif command -v npm &>/dev/null; then
     npm install -g --ignore-scripts openskills \
       ${NPM_REGISTRY:+--registry="$NPM_REGISTRY"} \
@@ -752,6 +801,8 @@ if [[ $CHECK_ONLY -eq 1 ]]; then
   exit 0
 fi
 
+interactive_setup
+
 # root：确保工作用户存在（默认 dev，--owner 自定义，两种模式通用）；
 # 基目录恒为 /home/$OWNER，与执行者无关
 if [[ $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
@@ -767,18 +818,18 @@ if [[ $EXECUTOR -eq 1 ]]; then
   check_post || true
   log "完成（executor 模式）。请在 registry/executors.yaml 登记本机后启动 executor 服务"
 else
-  init_dirs
-  [[ $SKIP_USERS -eq 1 ]]   || init_users
-  init_toolchain
+  step_enabled "目录结构" 0 && init_dirs
+  step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
+  step_enabled "语言/框架工具链（SDKMAN!/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_mirrors
   init_env_config
-  init_venv "$BASE_HOME" "$OWNER"
-  if [[ $SKIP_TOOLING -eq 0 ]]; then
+  step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
+  if step_enabled "pi / openskills（Agent 工具链）" "$SKIP_TOOLING"; then
     install_agent_tooling "$BASE_HOME" "$OWNER"          # 人工通道（VSCode/CLI）
     [[ $EUID -eq 0 ]] && install_agent_tooling "$BASE_HOME/.agent" agent  # Agent 通道
   fi
-  [[ $SKIP_REPOS -eq 1 ]]   || init_repos
-  [[ $SKIP_COMPOSE -eq 1 ]] || init_compose
+  step_enabled "代码仓库（克隆/骨架）" "$SKIP_REPOS" && init_repos
+  step_enabled "compose 测试环境" "$SKIP_COMPOSE" && init_compose
   check_post || true
   log "完成。布局见 docs/architecture/13-repo-template.md，权限模型见 16-linux-permissions.md"
 fi
