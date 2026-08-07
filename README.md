@@ -19,7 +19,7 @@ Agent 平台控制中心仓库：任务编排配置 + 注册表 + 环境脚本�
 
 ### 阶段一：init-env.sh（引导，需 root）
 
-只做三件事：**环境校验 → 创建工作用户（dev/agent）→ 克隆 control-center 本工程**，并植入首次登录钩子；顺带可装**系统级**常用工具（direnv/tmux，apt/pacman/dnf 自适应，默认 Y）：
+只做三件事：**环境校验 → 创建工作用户（dev/agent）→ 克隆 control-center 本工程**，并植入首次登录钩子；顺带可装**系统级**常用工具（direnv/tmux/ripgrep/fd/jq/gh——与 git/curl 同级，apt/pacman/dnf 自适应含包名映射，默认 Y）：
 
 ```bash
 # 编排节点（第一台）

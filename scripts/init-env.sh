@@ -265,29 +265,53 @@ EOF
   log "bashrc 已植入：control.env 挂载 + 阶段二首次登录钩子"
 }
 
-# ── 系统级常用工具（direnv/tmux 等，包管理器自适应）───────────
+# ── 系统级常用工具（与 git/curl 同级，包管理器自适应）─────────
 install_sys_packages() {
-  local pkgs=(direnv tmux)
+  local want=(direnv tmux rg fd jq gh)
   local missing=() p
-  for p in "${pkgs[@]}"; do
-    command -v "$p" &>/dev/null || missing+=("$p")
+  for p in "${want[@]}"; do
+    case "$p" in
+      fd) command -v fd &>/dev/null || command -v fdfind &>/dev/null || missing+=(fd) ;;
+      *)  command -v "$p" &>/dev/null || missing+=("$p") ;;
+    esac
   done
-  [[ ${#missing[@]} -eq 0 ]] && { log "系统工具已齐备: ${pkgs[*]}"; return 0; }
+  [[ ${#missing[@]} -eq 0 ]] && { log "系统工具已齐备: ${want[*]}"; return 0; }
   has_tty || { log "非交互，跳过系统工具安装: ${missing[*]}"; return 0; }
   local ans
   read -rp "安装系统级工具 ${missing[*]}？[Y/n] " ans </dev/tty
   [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过: ${missing[*]}"; return 0; }
+
+  local base=() gh_pkg=""
   if command -v apt-get &>/dev/null; then
-    apt-get update -qq && apt-get install -y -qq "${missing[@]}"
+    for p in "${missing[@]}"; do
+      case "$p" in fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;; *) base+=("$p");; esac
+    done
+    apt-get update -qq
+    [[ ${#base[@]} -gt 0 ]] && apt-get install -y -qq "${base[@]}"
   elif command -v pacman &>/dev/null; then
-    pacman -Sy --noconfirm --needed "${missing[@]}"
+    for p in "${missing[@]}"; do
+      case "$p" in rg) base+=(ripgrep);; gh) base+=(github-cli);; *) base+=("$p");; esac
+    done
+    pacman -Sy --noconfirm --needed "${base[@]}"
   elif command -v dnf &>/dev/null; then
-    dnf install -y "${missing[@]}"
+    for p in "${missing[@]}"; do
+      case "$p" in fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;; *) base+=("$p");; esac
+    done
+    dnf install -y "${base[@]}"
   else
     warn "无法识别包管理器，请手动安装: ${missing[*]}"
     return 0
   fi
-  log "系统工具安装完成: ${missing[*]}（direnv 钩子由阶段二写入 bashrc）"
+  # gh（GitHub CLI）：apt/dnf 默认源可能无此包，单独尝试
+  if [[ -n "$gh_pkg" ]]; then
+    if command -v apt-get &>/dev/null; then
+      apt-get install -y -qq gh 2>/dev/null \
+        || warn "gh 不在默认源，跳过（可用 GitHub CLI 官方源或 pacman 的 github-cli）"
+    else
+      dnf install -y gh 2>/dev/null || warn "gh 安装失败，跳过"
+    fi
+  fi
+  log "系统工具安装完成（direnv 钩子由阶段二写入 bashrc）"
 }
 
 # ── main ──────────────────────────────────────────────────────
