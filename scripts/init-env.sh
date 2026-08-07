@@ -212,38 +212,40 @@ check_post() {
     chk_warn "无法切换到 $OWNER 用户上下文（需 root 或免密 sudo），跳过用户环境后检"
     return 0
   fi
+  # 文件/目录检查一律在工作用户上下文（/home/dev 750，其他用户读不到）
+  t_test() { as_target_user "[[ $* ]]"; }
   # 尚未初始化：整体提示，不逐项 FAIL
-  if [[ $EXECUTOR -eq 0 && ! -e "$BASE_HOME/control.env" && ! -d "$BASE_HOME/control-center" ]]; then
+  if [[ $EXECUTOR -eq 0 ]] && t_test "! -e '$BASE_HOME/control.env' -a ! -d '$BASE_HOME/control-center'"; then
     chk_warn "环境尚未初始化（属预期，执行 sudo bash scripts/init-env.sh 后复检）"
     return 0
   fi
-  if [[ $EXECUTOR -eq 1 && ! -d "$BASE_HOME/executor" ]]; then
+  if [[ $EXECUTOR -eq 1 ]] && t_test "! -d '$BASE_HOME/executor'"; then
     chk_warn "executor 尚未初始化（属预期，执行 --executor 初始化后复检）"
     return 0
   fi
   local d
   if [[ $EXECUTOR -eq 1 ]]; then
     for d in executor/workspace executor/cache executor/logs; do
-      [[ -d "$BASE_HOME/$d" ]] && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
+      t_test "-d '$BASE_HOME/$d'" && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
     done
-    [[ -f "$BASE_HOME/executor/.env" ]] && chk_pass "executor/.env" || chk_fail "缺失 executor/.env"
-    grep -q 'EXECUTOR_TOKEN=change-me' "$BASE_HOME/executor/.env" 2>/dev/null \
+    t_test "-f '$BASE_HOME/executor/.env'" && chk_pass "executor/.env" || chk_fail "缺失 executor/.env"
+    as_target_user "grep -q 'EXECUTOR_TOKEN=change-me' '$BASE_HOME/executor/.env'" 2>/dev/null \
       && chk_warn "EXECUTOR_TOKEN 仍为占位符" || chk_pass "EXECUTOR_TOKEN 已配置"
     id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
   else
     for d in control-center/docs control-center/orchestration control-center/registry \
              repos wt data/mysql logs deploy; do
-      [[ -d "$BASE_HOME/$d" ]] && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
+      t_test "-d '$BASE_HOME/$d'" && chk_pass "目录: $d" || chk_fail "缺失目录: $d"
     done
-    [[ -f "$BASE_HOME/control.env" ]] && chk_pass "control.env" || chk_fail "缺失 control.env"
-    grep -qF 'control.env' "$BASE_HOME/.bashrc" 2>/dev/null \
+    t_test "-f '$BASE_HOME/control.env'" && chk_pass "control.env" || chk_fail "缺失 control.env"
+    as_target_user "grep -qF 'control.env' '$BASE_HOME/.bashrc'" 2>/dev/null \
       && chk_pass "bashrc 挂载" || chk_warn "bashrc 未挂载 control.env"
-    [[ -x "$BASE_HOME/.venv/bin/python" ]] && chk_pass "Python venv" || chk_warn "venv 未就绪"
-    [[ -f "$BASE_HOME/deploy/docker-compose.yml" ]] \
+    t_test "-x '$BASE_HOME/.venv/bin/python'" && chk_pass "Python venv" || chk_warn "venv 未就绪"
+    t_test "-f '$BASE_HOME/deploy/docker-compose.yml'" \
       && chk_pass "docker-compose.yml" || chk_warn "compose 未生成"
     local r
     for r in control-api control-web control-db; do
-      [[ -d "$BASE_HOME/repos/$r/.git" ]] && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
+      t_test "-d '$BASE_HOME/repos/$r/.git'" && chk_pass "仓库: $r" || chk_warn "仓库未初始化: $r"
     done
     id agent &>/dev/null && chk_pass "用户: agent" || chk_warn "用户 agent 未创建（非 root 运行？）"
     # 最小权限：工作用户不在 sudo 组
@@ -251,7 +253,7 @@ check_post() {
       && chk_warn "工作用户 $OWNER 在 sudo 组（建议移除: gpasswd -d $OWNER sudo）" \
       || chk_pass "工作用户 $OWNER 无 sudo 权限"
   fi
-  [[ -f "$BASE_HOME/.pi/models.json" ]] \
+  t_test "-f '$BASE_HOME/.pi/models.json'" \
     && chk_pass ".pi/models.json" || chk_warn ".pi/models.json 未生成（--skip-tooling？）"
 
   if [[ $CHECK_FAIL -gt 0 ]]; then
@@ -382,7 +384,7 @@ init_toolchain() {
   # pipefail 防止 curl 失败但管道返回 0 的假成功
   local uv_cmd='set -o pipefail; curl -fsSL https://astral.sh/uv/install.sh | sh'
   [[ -n "$GH_PROXY" ]] && uv_cmd="set -o pipefail; curl -fsSL https://astral.sh/uv/install.sh \
-    | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com/astral-sh/uv/releases' sh"
+    | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com' sh"
 
   # Java + Maven：清华镜像直装脚本（SDKMAN 无国内镜像，弃用）
   local jm_script="$BASE_HOME/scripts/install-java-maven.sh"
