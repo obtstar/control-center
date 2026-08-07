@@ -87,6 +87,7 @@ interactive_setup() {
     read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans </dev/tty
     [[ "$ans" == "2" ]] && EXECUTOR=1
   fi
+  return 0
 }
 
 # 分步执行确认：flag 跳过 > 非交互默认执行 > 交互询问（回车默认 Y）
