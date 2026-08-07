@@ -98,6 +98,10 @@ rm_path "$BASE_HOME/.pi"         " pi 配置（models.json、skills 软链）"
 rm_path "$BASE_HOME/.agent"      " agent 配置目录（executor 工具链）"
 rm_path "$BASE_HOME/.nvm"        " nvm（用户级 Node.js）"
 rm_path "$BASE_HOME/.sdkman"     " SDKMAN!（用户级 Java/Maven）"
+rm_path "$BASE_HOME/.local/bin/uv" " uv（Python 管理）"
+rm_path "$BASE_HOME/.local/bin/uvx" " uvx"
+rm_path "$BASE_HOME/.cache/uv"   " uv 缓存"
+rm_path "$BASE_HOME/.config/uv"  " uv 镜像配置"
 
 # ── 2. bashrc 挂载行 ──────────────────────────────────────────
 bashrc="$BASE_HOME/.bashrc"

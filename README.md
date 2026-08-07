@@ -33,10 +33,10 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | `--check` | **仅环境校验，不执行初始化**（非 root 仅支持此模式） |
 
 初始化过程中会逐项询问安装**用户级**语言/框架（默认 `N` 回车跳过）：
-Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、Docker rootless（需已装 docker）。
-全部落在工作用户 home，不污染系统目录。
+Java+Maven（SDKMAN!）、Node.js LTS（nvm）、pnpm（corepack）、**uv（Python 版本/.venv/包唯一管理入口）**、Docker rootless（需已装 docker）。
+全部落在工作用户 home，不污染系统目录。`.venv` 由 `uv venv` 创建。
 
-随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）。
+随后会询问是否配置**国内镜像加速**（默认 `Y` 回车确认）：npm→`registry.npmmirror.com`（用户级）、pip→清华（`~/.config/pip/pip.conf`）、uv→清华（`~/.config/uv/uv.toml`）。
 
 ### 环境变量
 
@@ -85,6 +85,6 @@ sudo bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎
 
 - 初始化需 root（新建工作用户 `dev` 与 `agent`、设置目录属主）；非 root 仅支持 `--check` 校验
 - 基目录由 `--owner` 推导（默认 `dev` 的 home），无其他覆盖入口
-- Debian/Ubuntu 先装 `sudo apt install python3-venv`
+- Python 无需系统级准备：版本与 `.venv` 均由 uv 管理
 - executor 初始化后：在 `registry/executors.yaml` 登记本机 → 将签发的 token 写入 `~/executor/.env` 的 `EXECUTOR_TOKEN` → 启动 executor 服务
 - 密钥只进 `.env`（600 权限），不进 bashrc、不进 Git

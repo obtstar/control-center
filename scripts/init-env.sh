@@ -46,6 +46,8 @@ CHECK_ONLY=0
 LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 # pip 镜像：优先内网镜像（PIP_INDEX_URL），未设置时默认清华镜像
 export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+# uv 镜像（uv venv/pip 使用）
+export UV_INDEX_URL="${UV_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --owner) OWNER="$2"; shift 2 ;;
@@ -96,16 +98,31 @@ check_pre() {
   elif ! as_target_user 'true' &>/dev/null; then
     chk_warn "无法切换到 $OWNER 用户上下文（需 root 或免密 sudo），跳过用户环境检测"
   else
-  local c
-  for c in git python3 curl; do
+  local c p
+  # 用户级工具链环境（nvm / SDKMAN! / uv），校验前先加载
+  local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; source "$HOME/.sdkman/bin/sdkman-init.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$PATH";'
+  # 系统级必需命令
+  for c in git curl; do
     as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
   done
-  for c in npm docker java node pnpm; do
-    as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c（可选）" || chk_warn "缺少可选命令: $c"
+  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（SDKMAN!）
+  for c in node npm pnpm java mvn; do
+    p="$(as_target_user "$user_env command -v $c" 2>/dev/null)" || p=""
+    if [[ -z "$p" ]]; then
+      chk_warn "缺少可选命令: $c"
+    elif [[ "$p" == "$BASE_HOME/"* ]]; then
+      chk_pass "命令: $c（用户级: $p）"
+    else
+      chk_warn "命令: $c 仅系统级（$p），建议用户级安装（nvm/SDKMAN!/uv）"
+    fi
   done
-
-  as_target_user "python3 -c 'import ensurepip'" >/dev/null 2>&1 \
-    && chk_pass "python3 venv 支持" || chk_warn "缺 ensurepip：apt install python3-venv"
+  # uv：Python 唯一管理入口（版本/.venv/包）
+  as_target_user "$user_env command -v uv" >/dev/null 2>&1 \
+    && chk_pass "uv 可用（Python/.venv 由 uv 管理）" \
+    || chk_warn "缺少 uv：Python/.venv 由 uv 管理，初始化时可安装"
+  # docker：系统级守护进程，单独校验
+  as_target_user "command -v docker" >/dev/null 2>&1 \
+    && chk_pass "命令: docker（可选）" || chk_warn "缺少可选命令: docker"
 
   # docker 免 sudo：工作用户在 docker 组中
   if as_target_user "command -v docker" >/dev/null 2>&1; then
@@ -305,6 +322,8 @@ init_toolchain() {
   try_install "Node.js LTS（nvm）" node \
     'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash \
       && source "$HOME/.nvm/nvm.sh" && nvm install --lts'
+  try_install "uv（Python 版本/包管理）" uv \
+    'curl -fsSL https://astral.sh/uv/install.sh | sh'
   try_install "pnpm（corepack，多 worktree 共享 store）" pnpm \
     'source "$HOME/.nvm/nvm.sh" 2>/dev/null \
       && corepack enable && corepack prepare pnpm@latest --activate'
@@ -342,6 +361,17 @@ timeout = 30
 EOF
   [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$pip_conf"
   log "pip 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$pip_conf/pip.conf）"
+
+  # uv：清华镜像（uv.toml）
+  local uv_conf="$BASE_HOME/.config/uv"
+  mkdir -p "$uv_conf"
+  cat > "$uv_conf/uv.toml" <<'EOF'
+[[index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+EOF
+  [[ $EUID -eq 0 ]] && chown -R "$OWNER:$(id -gn "$OWNER")" "$uv_conf"
+  log "uv 镜像: https://pypi.tuna.tsinghua.edu.cn/simple（$uv_conf/uv.toml）"
 }
 
 # ── 3. 环境变量配置 ───────────────────────────────────────────
@@ -376,29 +406,25 @@ EOF
   fi
 }
 
-# ── 4. Python 虚拟环境 ────────────────────────────────────────
+# ── 4. Python 虚拟环境（uv 管理）──────────────────────────────
 init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
   local home="$1" user="${2:-}"
-  command -v python3 >/dev/null || { warn "未安装 python3，跳过虚拟环境"; return 0; }
   if [[ -d "$home/.venv" ]]; then
     log "虚拟环境已存在，跳过: $home/.venv"
+  elif as_target_user 'export PATH="$HOME/.local/bin:$PATH"; command -v uv' &>/dev/null; then
+    log "创建 Python 虚拟环境（uv）: $home/.venv"
+    if as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; uv venv --seed '$home/.venv'"; then
+      if [[ -f "$home/control-center/requirements.txt" ]]; then
+        as_target_user "export PATH=\"\$HOME/.local/bin:\$PATH\"; uv pip install --python '$home/.venv/bin/python' -q -r '$home/control-center/requirements.txt'" \
+          && log "已安装 control-center/requirements.txt"
+      fi
+    else
+      warn "uv venv 失败（网络受限？），跳过"
+    fi
   else
-    log "创建 Python 虚拟环境: $home/.venv"
-    if ! python3 -m venv "$home/.venv" >/dev/null 2>&1; then
-      rm -rf "$home/.venv"
-      warn "venv 创建失败（Debian/Ubuntu 需先 apt install python3-venv），跳过"
-      return 0
-    fi
-    # pip 内网镜像（PIP_INDEX_URL 已 export 则自动生效）
-    "$home/.venv/bin/pip" install --quiet --upgrade pip \
-      || warn "pip 升级失败（网络受限？），已保留自带 pip"
-    # 控制中心自带依赖清单则一并安装
-    if [[ -f "$home/control-center/requirements.txt" ]]; then
-      "$home/.venv/bin/pip" install --quiet -r "$home/control-center/requirements.txt" \
-        && log "已安装 control-center/requirements.txt"
-    fi
+    warn "uv 未安装，跳过 .venv 创建（工具链步骤选择安装 uv，或: curl -fsSL https://astral.sh/uv/install.sh | sh）"
   fi
-  if [[ -n "$user" ]] && id "$user" &>/dev/null \
+  if [[ -d "$home/.venv" && -n "$user" ]] && id "$user" &>/dev/null \
      && { [[ $EUID -eq 0 ]] || [[ "$user" == "$(id -un)" ]]; }; then
     chown -R "$user:$user" "$home/.venv"
   fi
