@@ -133,13 +133,13 @@ check_pre() {
     chk_warn "无法切换到 $OWNER 用户上下文（需 root 或免密 sudo），跳过用户环境检测"
   else
   local c p
-  # 用户级工具链环境（nvm / SDKMAN! / uv），校验前先加载
-  local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; source "$HOME/.sdkman/bin/sdkman-init.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$PATH";'
+  # 用户级工具链环境（nvm / uv / ~/.local/bin），校验前先加载
+  local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$PATH";'
   # 系统级必需命令
   for c in git curl; do
     as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
   done
-  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（SDKMAN!）
+  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（清华镜像直装 ~/.local）
   for c in node npm pnpm java mvn; do
     p="$(as_target_user "$user_env command -v $c" 2>/dev/null)" || p=""
     if [[ -z "$p" ]]; then
@@ -147,7 +147,7 @@ check_pre() {
     elif [[ "$p" == "$BASE_HOME/"* ]]; then
       chk_pass "命令: $c（用户级: $p）"
     else
-      chk_warn "命令: $c 仅系统级（$p），建议用户级安装（nvm/SDKMAN!/uv）"
+      chk_warn "命令: $c 仅系统级（$p），建议用户级安装（nvm/uv/镜像直装）"
     fi
   done
   # uv：Python 唯一管理入口（版本/.venv/包）
@@ -320,7 +320,7 @@ init_users() {
 }
 
 # ── 2.5 可选语言/框架（用户级安装，交互确认，回车默认 N 跳过）─
-# 全部落在工作用户 home：Java/Maven→SDKMAN!，Node→nvm，pnpm→corepack；
+# 全部落在工作用户 home：Java/Maven→清华镜像直装 ~/.local，Node→nvm，pnpm→corepack；
 # root 运行时 su 到工作用户执行，不污染 /root 与系统目录
 confirm_opt() { # 非交互默认跳过
   has_tty || return 1
@@ -365,27 +365,6 @@ init_toolchain() {
   [[ $SKIP_TOOLING -eq 1 ]] && { log "--skip-tooling，跳过语言/框架安装"; return 0; }
   log "可选语言/框架安装（用户级，回车默认跳过，非交互模式全部跳过）"
 
-  # SDKMAN! 依赖 unzip/zip（系统级，按发行版包管理器安装）
-  local missing=()
-  command -v unzip &>/dev/null || missing+=(unzip)
-  command -v zip &>/dev/null || missing+=(zip)
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    if [[ $EUID -eq 0 ]]; then
-      log "安装系统依赖: ${missing[*]}"
-      if command -v apt-get &>/dev/null; then
-        apt-get update -qq && apt-get install -y -qq "${missing[@]}"
-      elif command -v pacman &>/dev/null; then
-        pacman -Sy --noconfirm --needed "${missing[@]}"
-      elif command -v dnf &>/dev/null; then
-        dnf install -y "${missing[@]}"
-      else
-        warn "无法识别包管理器，请手动安装: ${missing[*]}"
-      fi
-    else
-      warn "缺少系统依赖: ${missing[*]}（需 root 安装，如 pacman -S unzip zip）"
-    fi
-  fi
-
   # 下载命令按 GH_PROXY / npmmirror 构造
   local nvm_url="${GH_PROXY:+$GH_PROXY/}https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
   local node_mirror='export NVM_NODEJS_ORG_MIRROR="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}";'
@@ -393,12 +372,47 @@ init_toolchain() {
   [[ -n "$GH_PROXY" ]] && uv_cmd="curl -fsSL https://astral.sh/uv/install.sh \
     | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com/astral-sh/uv/releases' sh"
 
-  try_install "Java + Maven（SDKMAN!）" java \
-    'curl -fsSL https://get.sdkman.io | bash \
-      && sed -i "s/sdkman_auto_answer=false/sdkman_auto_answer=true/" "$HOME/.sdkman/etc/config" \
-      && source "$HOME/.sdkman/bin/sdkman-init.sh" \
-      && sdk install java && sdk install maven' \
-    'source "$HOME/.sdkman/bin/sdkman-init.sh" && sdk upgrade java && sdk upgrade maven'
+  # Java + Maven：清华镜像直装脚本（SDKMAN 无国内镜像，弃用）
+  local jm_script="$BASE_HOME/scripts/install-java-maven.sh"
+  mkdir -p "$BASE_HOME/scripts"
+  cat > "$jm_script" <<'EOF'
+#!/usr/bin/env bash
+# Temurin JDK 17 + Maven 清华镜像直装（用户级，落 ~/.local）
+set -e
+base=https://mirrors.tuna.tsinghua.edu.cn
+dest="$HOME/.local/lib"
+mkdir -p "$dest" "$HOME/.local/bin"
+
+jdk_file=$(curl -fsSL "$base/Adoptium/17/jdk/x64/linux/" \
+  | grep -oP 'OpenJDK17U-jdk_x64_linux_hotspot_[^"]+\.tar\.gz' \
+  | grep -v sha256 | sort -V | tail -1)
+[[ -n "$jdk_file" ]] || { echo "未找到 JDK 包" >&2; exit 1; }
+echo "下载 $jdk_file"
+curl -fsSL "$base/Adoptium/17/jdk/x64/linux/$jdk_file" -o /tmp/jdk17.tgz
+tar -xzf /tmp/jdk17.tgz -C "$dest" && rm -f /tmp/jdk17.tgz
+jdk_dir=$(find "$dest" -maxdepth 1 -name 'jdk-17*' -type d | sort -V | tail -1)
+ln -sfn "$jdk_dir" "$dest/jdk17"
+ln -sfn "$dest/jdk17/bin/java" "$HOME/.local/bin/java"
+ln -sfn "$dest/jdk17/bin/javac" "$HOME/.local/bin/javac"
+
+mvn_ver=$(curl -fsSL "$base/apache/maven/maven-3/" \
+  | grep -oP '(?<=href=")3\.[0-9.]+(?=/)' | sort -V | tail -1)
+[[ -n "$mvn_ver" ]] || { echo "未找到 Maven 版本" >&2; exit 1; }
+echo "下载 apache-maven-$mvn_ver"
+curl -fsSL "$base/apache/maven/maven-3/$mvn_ver/binaries/apache-maven-$mvn_ver-bin.tar.gz" -o /tmp/maven.tgz
+tar -xzf /tmp/maven.tgz -C "$dest" && rm -f /tmp/maven.tgz
+ln -sfn "$dest/apache-maven-$mvn_ver" "$dest/maven"
+ln -sfn "$dest/maven/bin/mvn" "$HOME/.local/bin/mvn"
+
+grep -q JAVA_HOME "$HOME/.bashrc" 2>/dev/null \
+  || echo 'export JAVA_HOME="$HOME/.local/lib/jdk17"' >> "$HOME/.bashrc"
+echo "完成: JAVA_HOME=$dest/jdk17, maven=$dest/maven"
+EOF
+  chmod +x "$jm_script"
+  [[ $EUID -eq 0 ]] && chown "$OWNER:$(id -gn "$OWNER")" "$jm_script"
+
+  try_install "Java + Maven（清华镜像 Temurin 17 + Maven）" java \
+    "bash '$jm_script'" "bash '$jm_script'"
   try_install "Node.js LTS（nvm）" node \
     "$node_mirror curl -fsSL $nvm_url | bash \
       && source \"\$HOME/.nvm/nvm.sh\" && nvm install --lts" \
@@ -870,6 +884,26 @@ if [[ $EUID -eq 0 && $SKIP_USERS -eq 0 ]]; then
   if ! id "$OWNER" &>/dev/null; then
     useradd -m -s /bin/bash "$OWNER"
     log "创建工作用户: $OWNER（home: /home/$OWNER）"
+    # 新用户默认无密码（直登锁定）：交互设置密码 / 迁移 SSH 公钥
+    if has_tty; then
+      local ans
+      read -rp "为 $OWNER 设置登录密码？[y/N] " ans </dev/tty
+      [[ "$ans" =~ ^[yY](es)?$ ]] && passwd "$OWNER"
+      local invoker="${SUDO_USER:-}"
+      if [[ -n "$invoker" && -s "/home/$invoker/.ssh/authorized_keys" ]]; then
+        read -rp "复制 $invoker 的 SSH 公钥到 $OWNER（免密登录）？[Y/n] " ans </dev/tty
+        if [[ ! "$ans" =~ ^[nN](o)?$ ]]; then
+          mkdir -p "$BASE_HOME/.ssh"
+          cp "/home/$invoker/.ssh/authorized_keys" "$BASE_HOME/.ssh/authorized_keys"
+          chown -R "$OWNER:$(id -gn "$OWNER")" "$BASE_HOME/.ssh"
+          chmod 700 "$BASE_HOME/.ssh"
+          chmod 600 "$BASE_HOME/.ssh/authorized_keys"
+          log "已复制 SSH 公钥 → $OWNER"
+        fi
+      fi
+    else
+      warn "$OWNER 无密码（直登锁定）：root 可 su - $OWNER 切换，或手动 passwd $OWNER"
+    fi
   fi
 fi
 
@@ -882,7 +916,7 @@ else
   step_enabled "目录结构" 0 && init_dirs
   step_enabled "用户配置（agent/dev 权限模型）" "$SKIP_USERS" && init_users
   init_mirrors
-  step_enabled "语言/框架工具链（SDKMAN!/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
+  step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_env_config
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
   if step_enabled "pi / openskills（Agent 工具链）" "$SKIP_TOOLING"; then
