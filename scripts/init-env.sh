@@ -378,8 +378,10 @@ init_toolchain() {
   # 下载命令按 GH_PROXY / npmmirror 构造
   local nvm_url="${GH_PROXY:+$GH_PROXY/}https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh"
   local node_mirror='export NVM_NODEJS_ORG_MIRROR="${NVM_NODEJS_ORG_MIRROR:-https://npmmirror.com/mirrors/node}";'
-  local uv_cmd="curl -fsSL ${GH_PROXY:+$GH_PROXY/}https://astral.sh/uv/install.sh | sh"
-  [[ -n "$GH_PROXY" ]] && uv_cmd="curl -fsSL $GH_PROXY/https://astral.sh/uv/install.sh \
+  # uv：安装脚本直连 astral.sh（gh 代理不支持），仅 GitHub 二进制下载走代理；
+  # pipefail 防止 curl 失败但管道返回 0 的假成功
+  local uv_cmd='set -o pipefail; curl -fsSL https://astral.sh/uv/install.sh | sh'
+  [[ -n "$GH_PROXY" ]] && uv_cmd="set -o pipefail; curl -fsSL https://astral.sh/uv/install.sh \
     | env UV_INSTALLER_GITHUB_BASE_URL='$GH_PROXY/https://github.com/astral-sh/uv/releases' sh"
 
   # Java + Maven：清华镜像直装脚本（SDKMAN 无国内镜像，弃用）
@@ -443,6 +445,7 @@ EOF
      rm -rf "$HOME/.local/lib/go" && tar -xzf /tmp/go.tgz -C "$HOME/.local/lib" && rm -f /tmp/go.tgz
      ln -sfn "$HOME/.local/lib/go/bin/go" "$HOME/.local/bin/go"
      ln -sfn "$HOME/.local/lib/go/bin/gofmt" "$HOME/.local/bin/gofmt"
+     mkdir -p "$HOME/.config/go"
      go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn' \
     'set -e
      ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)
@@ -507,7 +510,7 @@ EOF
 
   # Go：goproxy.cn 模块代理（已装 Go 时写入 go env）
   if as_target_user "$USER_ENV command -v go" &>/dev/null; then
-    as_target_user "$USER_ENV go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn" \
+    as_target_user "$USER_ENV mkdir -p \"\$HOME/.config/go\" && go env -w GOPROXY=https://goproxy.cn,direct GOSUMDB=sum.golang.google.cn" \
       && log "Go 代理: https://goproxy.cn,direct（go env -w）"
   fi
 }
@@ -816,8 +819,9 @@ init_piekbs() {
   if as_target_user "$USER_ENV command -v piekbs" &>/dev/null; then
     log "piekbs 已安装，跳过二进制安装"
   elif confirm_opt "安装 piekbs 二进制（GitHub release）？"; then
-    local dl_cmd="set -e; "
-    dl_cmd+="url=\$(curl -fsSL ${gh}https://api.github.com/repos/pieteams/piekbs/releases/latest | grep -o 'https://[^\"]*linux-amd64.tar.gz' | head -1); "
+    # API 直连（gh 代理对 api.github.com 返回 403），仅 tarball 下载走代理
+    local dl_cmd="set -eo pipefail; "
+    dl_cmd+="url=\$(curl -fsSL https://api.github.com/repos/pieteams/piekbs/releases/latest | grep -o 'https://[^\"]*linux-amd64.tar.gz' | head -1); "
     dl_cmd+="[[ -n \"\$url\" ]] || { echo '未找到 release 下载地址' >&2; exit 1; }; "
     dl_cmd+="mkdir -p \"\$HOME/.local/bin\" && curl -fsSL ${gh}\$url | tar -xz -C \"\$HOME/.local/bin\" && chmod +x \"\$HOME/.local/bin/piekbs\""
     as_target_user "$dl_cmd" \
