@@ -10,7 +10,7 @@ repos:
     name: 控制中心
     path: control-center           # 相对工作用户 home（普通克隆，不走 wt）
     git_url: git@github.com:obtstar/control-center.git
-    default_branch: main
+    default_branch: dev
     executor_allowed: false        # 不纳入任务调度
 
   - repo_key: control-api
@@ -52,7 +52,7 @@ repos:
     path: piekbs                   # 顶级目录（gitdir 集中 ~/.repos/piekbs.git）
     git_url: git@github.com:obtstar/piekbs.git
     api_type: GITHUB
-    default_branch: main
+    default_branch: dev
     executor_allowed: false
 
   - repo_key: control-wiki
@@ -60,7 +60,7 @@ repos:
     path: control-wiki             # 普通克隆（KB 数据仓，由 init_piekbs 管理）
     git_url: git@github.com:obtstar/control-wiki.git
     api_type: GITHUB
-    default_branch: main
+    default_branch: dev
     executor_allowed: false
 
   # 业务仓库按同 schema 登记（示例）：

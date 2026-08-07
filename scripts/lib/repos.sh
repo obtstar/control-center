@@ -151,6 +151,8 @@ sync_repo_infra() { # $1=repo_key $2=git_url $3=工作区绝对路径
   mkdir -p "$BASE_HOME/.repos"
   if gitu "clone --separate-git-dir '$gitdir' '$url' '$dest'" >/dev/null 2>&1; then
     log "克隆仓库: $key（gitdir: ~/.repos/$key.git）"
+    # 本地默认工作分支 dev（无 dev 分支时保持 main）
+    gitu "-C '$dest' checkout -q dev" >/dev/null 2>&1 || true
     own "$dest" "$gitdir"
   else
     warn "克隆失败（远程为空/不可达？）: $url"

@@ -1,0 +1,48 @@
+# 流水线状态机（05 章）：每阶段一审批闸
+# control-api 热加载本文件；状态流转与审批事件记 work_log（hash 链）
+pipeline:
+  stages:
+    - id: requirements          # 需求分析
+      agent: [rag_retrieve, impact_analysis]
+      artifact: 影响分析报告
+      approval: required        # required=人工审批 | auto=自动过闸
+      on_reject: retry          # 驳回必附批注，AI 带批注重做本阶段
+
+    - id: design                # 系统设计
+      agent: [api_design, db_change, sequence_diagram]
+      artifact: 设计文档（control-center MR）
+      approval: required
+      on_reject: retry
+
+    - id: coding                # 编码实现
+      agent: [branch_worktree, implement, unit_test]
+      artifact: commit + MR diff
+      approval: required
+      on_reject: retry
+
+    - id: testing               # 测试验证
+      agent: [integration_test, regression, static_check]
+      artifact: 测试报告
+      approval: required
+      on_reject: back_to_coding # 测试不过打回编码阶段
+
+    - id: merge                 # 待合并（终审）
+      artifact: MR + heavy 模型自评报告
+      quality_gate: [tests_green, heavy_self_review]   # 进入本阶段的前置自动关
+      approval: gitlab          # 终审在 GitLab 人工合并，平台无合并按钮
+      webhook: merge_event      # 合并事件回传 → deliver
+
+    - id: deliver               # 交付
+      approval: auto
+      agent: [cleanup_worktree, archive_report]
+
+approval:
+  interface: control-web        # 批准/驳回均在 Web 工作台（驳回必附批注）
+  cli_fallback: pi CLI 亦可审批（人工通道）
+  audit: work_log               # 记录审批人/时间/意见/前后状态哈希
+  timeout_hours: 24             # 超时未审批 → Web 通知，不自动通过
+
+circuit_breaker:                # 任务级熔断（防失控烧预算）
+  consecutive_failures: 3
+  token_budget_per_task: 500000
+  action: auto_pause_and_notify

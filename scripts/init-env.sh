@@ -188,8 +188,8 @@ init_users_dirs() {
   fi
 
   # 目录结构（16.3：owner 控制面；wt 为 owner+agent 共享工作区根，setgid 继承组）
-  # gitdir 集中 ~/.repos（bare）；常驻/任务工作区统一 ~/wt（13 章）
-  mkdir -p "$BASE_HOME"/{.repos,wt,data/mysql,data/milvus,logs,scripts,deploy/mysql/init}
+  # gitdir 集中 ~/.repos（bare）；业务项目常驻 ~/wt/projects/，任务 worktree ~/wt/<repo>/TASK-*
+  mkdir -p "$BASE_HOME"/{.repos,wt/projects,data/mysql,data/milvus,logs,scripts,deploy/mysql/init}
   chmod 750 "$BASE_HOME/data" "$BASE_HOME/logs" "$BASE_HOME/.repos"
   chown -R "$OWNER:$ogroup" "$BASE_HOME"/{.repos,data,logs,scripts,deploy}
   chown -R "$OWNER:$ogroup" "$BASE_HOME/wt"; chmod 2770 "$BASE_HOME/wt"
