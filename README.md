@@ -10,7 +10,7 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | `docs/architecture/` | 架构文档集（00-17，索引见其中 README） |
 | `orchestration/` | 任务编排配置：`prompts/`、`skills/`、`workflows/` |
 | `registry/` | 注册表：`repos.yaml`（仓库注册）、`executors.yaml`（执行节点登记） |
-| `scripts/` | 环境初始化脚本 `init-env.sh` |
+| `scripts/` | 环境初始化脚本 `init-env.sh`、卸载脚本 `uninstall-env.sh` |
 | `control-center.code-workspace` | VS Code 多根目录工作区（control-center + 平台仓库 + Worktree 根），WSL 中用 `code control-center.code-workspace` 打开 |
 
 ## 环境初始化脚本（scripts/init-env.sh）
@@ -39,7 +39,8 @@ Agent 平台控制中心仓库：设计开发控制文档 + 任务编排配置 +
 | `NPM_REGISTRY` | npm 内网镜像（安装 pi/openskills 用） |
 | `PIP_INDEX_URL` | pip 内网镜像（venv 装依赖用），未设置时默认清华镜像 |
 | `LITELLM_ENDPOINT` | LiteLLM 代理地址（默认 `http://litellm.internal:4000`） |
-| `GIT_REMOTE_BASE` | 仓库远程地址前缀（如 `git@github.com:obtstar`）：远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev |
+| `GIT_REMOTE_BASE` | 仓库远程地址全量前缀：远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev |
+| `GIT_PROTO` / `GIT_REMOTE_HOST` | 未设 `GIT_REMOTE_BASE` 时按协议构造前缀：`ssh`→`git@HOST`、`http`→`https://HOST`（HOST 默认 `github.com/obtstar`）；交互运行时会提示 1) ssh / 2) http 二选一 |
 
 ### 远程校验命令
 
@@ -57,6 +58,18 @@ ssh user@pc-01 'curl -fsSL https://raw.githubusercontent.com/obtstar/control-cen
 ```
 
 输出三级：**PASS** 正常 / **WARN** 可择情处理（如 token 占位符、可选工具缺失）/ **FAIL** 必须修复。
+
+### 卸载（scripts/uninstall-env.sh）
+
+逐项提示并删除初始化创建的全部产物（compose 容器 → 目录/配置 → bashrc 挂载行 → `agent` 用户），未确认项一律保留：
+
+```bash
+bash scripts/uninstall-env.sh              # 编排节点，逐项交互确认
+bash scripts/uninstall-env.sh --executor   # 执行节点
+bash scripts/uninstall-env.sh --yes        # 全部确认（非交互，慎用）
+```
+
+删除 `control-center` 前会检查未提交/未推送的 Git 更改并告警。
 
 ### 注意事项
 

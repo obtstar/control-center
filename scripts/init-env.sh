@@ -31,6 +31,8 @@ usage() {
   LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
   GIT_REMOTE_BASE   仓库远程地址前缀（如 git@github.com:obtstar）：
                     远程已有内容时克隆；远程为空时本地建骨架并推送 main/dev
+  GIT_PROTO         远程协议 ssh|http（与 GIT_REMOTE_HOST 组合，交互时可选 1/2）
+  GIT_REMOTE_HOST   远程主机/组织（默认 github.com/obtstar）
 EOF
 }
 
@@ -379,8 +381,29 @@ EOF
   fi
 }
 
+# 远程地址解析：GIT_REMOTE_BASE 全量前缀优先；否则按协议选择构造
+resolve_remote_base() {
+  [[ -n "${GIT_REMOTE_BASE:-}" ]] && return 0
+  local proto="${GIT_PROTO:-}" host="${GIT_REMOTE_HOST:-github.com/obtstar}"
+  if [[ -z "$proto" && -t 0 ]]; then
+    echo "平台仓库远程协议（克隆/推送 control-api/control-web/control-db）：" >&2
+    echo "  1) ssh   git@$host" >&2
+    echo "  2) http  https://$host" >&2
+    echo "  回车跳过（仅本地骨架，不关联远程）" >&2
+    read -rp "选择 [1/2]: " proto
+    [[ "$proto" == "1" ]] && proto=ssh
+    [[ "$proto" == "2" ]] && proto=http
+  fi
+  case "$proto" in
+    ssh)        GIT_REMOTE_BASE="git@$host" ;;
+    http|https) GIT_REMOTE_BASE="https://$host"
+                warn "http 协议克隆私有仓库需凭据（token/凭据助手），否则仅公开仓库可用" ;;
+  esac
+}
+
 init_repos() {
   command -v git >/dev/null || { warn "未安装 git，跳过仓库骨架"; return 0; }
+  resolve_remote_base
   for r in control-api control-web control-db; do
     init_repo_skeleton "$r"
   done
