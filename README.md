@@ -56,7 +56,7 @@
 # 阶段一（root，curl|bash 单文件）：校验 + 创建用户(dev/agent) + 克隆本仓 + 首次登录钩子
 curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/dev/scripts/init-env.sh | sudo bash -s --
 
-# 阶段二（dev 身份，首次登录自动触发或手动）：镜像/仓库同步/工具链/PieKBS/pi/compose
+# 阶段二（dev 身份，首次登录自动触发或手动）：镜像/仓库同步/工具链/PieKBS/pi/openwiki/compose
 bash ~/control-center/scripts/setup-env.sh [--executor|--check|--skip-*]
 
 # 卸载
@@ -124,3 +124,5 @@ settings.json 限定访问 home + protected_paths）。
 架构文档（00-18 章）全文在 control-wiki `raw/architecture/`：
 00 原则 / 02 分支与 worktree / 05 编排 / 08 数据模型 / 10 部署 / 14 多仓 / 16 权限 / **18 权柄与有据模型**。
 经 PieKBS 蒸馏后可被 pi/Agent 以 MCP 直接检索（`kb_search`/`kb_page`）。
+可选文档生产器 **openwiki**（LangChain）：在业务仓执行 `openwiki --update` 生成文档原稿，
+投喂项目级 KB `~/wiki/<repo>/raw/` 后经 PieKBS 蒸馏入库（遥测默认关闭，provider 指向 LiteLLM）。

@@ -30,6 +30,21 @@ install_pi_packages() {
       && log "openskills 安装完成" || warn "openskills 安装失败，可后续手动安装"
   fi
 
+  # openwiki（可选文档生产器：生成 wiki 原稿投喂项目级 KB raw/，投喂后经 PieKBS 蒸馏）
+  if as_target_user "$USER_ENV command -v openwiki" &>/dev/null; then
+    if confirm_opt "openwiki 已安装，是否升级？"; then
+      as_target_user "$USER_ENV npm update -g --ignore-scripts openwiki --registry='$NPM_REGISTRY'" \
+        && log "openwiki 升级完成" || warn "openwiki 升级失败（保留现有版本）"
+    else
+      log "openwiki 已安装，跳过"
+    fi
+  elif as_target_user "$USER_ENV command -v npm" &>/dev/null \
+     && confirm_opt "安装 openwiki（LangChain 文档生成器，可选）？"; then
+    as_target_user "$USER_ENV npm install -g --ignore-scripts openwiki --registry='$NPM_REGISTRY'" \
+      && log "openwiki 安装完成（用法: 业务仓执行 openwiki --update，产出投喂 ~/wiki/<repo>/raw/）" \
+      || warn "openwiki 安装失败（含 better-sqlite3 原生依赖，WSL/Arch 需编译工具链）"
+  fi
+
   # pi-di18n（中文界面，可选）
   if as_target_user "$USER_ENV command -v pi" &>/dev/null \
      && confirm_opt "添加 pi-di18n 并切换中文界面？"; then
