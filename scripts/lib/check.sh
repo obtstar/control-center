@@ -145,6 +145,26 @@ check_post() {
     id -nG "$OWNER" 2>/dev/null | grep -qw sudo \
       && chk_warn "工作用户 $OWNER 在 sudo 组（建议移除: gpasswd -d $OWNER sudo）" \
       || chk_pass "工作用户 $OWNER 无 sudo 权限"
+    # 权限模型校验（16 章）：目录属主/模式
+    check_perm() { # $1=路径 $2=期望属主 $3=期望模式
+      local actual
+      actual=$(as_target_user "stat -c '%U %a' '$1'" 2>/dev/null)
+      [[ "$actual" == "$2 $3" ]] \
+        && chk_pass "权限: $1（$actual）" \
+        || chk_warn "权限异常: $1（期望 $2:$3，实际 ${actual:-不存在}）"
+    }
+    check_perm "$BASE_HOME/control-center" "$OWNER" 750
+    check_perm "$BASE_HOME/.repos" "$OWNER" 750
+    check_perm "$BASE_HOME/wt" "$OWNER" 2770
+    check_perm "$BASE_HOME/data" "$OWNER" 750
+    [[ -d "$BASE_HOME/.agent" ]] && check_perm "$BASE_HOME/.agent" agent 770
+    [[ -d "$BASE_HOME/.ssh" ]] && check_perm "$BASE_HOME/.ssh" "$OWNER" 700
+    # agent 账号属性
+    getent passwd agent 2>/dev/null | grep -q 'nologin' \
+      && chk_pass "agent 为 nologin" || chk_warn "agent 非 nologin（权限模型要求 nologin）"
+    id -nG agent 2>/dev/null | grep -qw "$(id -gn "$OWNER")" \
+      && chk_pass "agent ∈ $(id -gn "$OWNER") 组（仓库只读通道）" \
+      || chk_warn "agent 不在 $(id -gn "$OWNER") 组"
   fi
   t_test "-f '$BASE_HOME/.pi/models.json'" \
     && chk_pass ".pi/models.json" || chk_warn ".pi/models.json 未生成（--skip-tooling？）"
