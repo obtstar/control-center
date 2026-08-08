@@ -109,18 +109,28 @@ rm_path "$BASE_HOME/.local/bin/uvx" " uvx"
 rm_path "$BASE_HOME/.cache/uv"   " uv 缓存"
 rm_path "$BASE_HOME/.config/uv"  " uv 镜像配置"
 
-# ── 2. bashrc 挂载行与阶段二钩子 ──────────────────────────────
+# ── 2. bashrc 主题块/挂载行与阶段二钩子 ───────────────────────
 bashrc="$BASE_HOME/.bashrc"
 if [[ -f "$bashrc" ]]; then
-  if grep -qE 'control\.env|control-setup-done' "$bashrc"; then
-    if confirm "移除 $bashrc 中的 control.env 挂载与阶段二钩子？"; then
-      sed -i.uninstall-bak -e '\#source ~/control.env#d' \
+  if grep -qE 'control-center theme|control\.env|control-setup-done' "$bashrc"; then
+    if confirm "移除 $bashrc 中的主题块/挂载与阶段二钩子？"; then
+      sed -i.uninstall-bak \
+        -e '/# >>> control-center theme >>>/,/# <<< control-center theme <<</d' \
+        -e '\#source ~/control.env#d' \
         -e '/# control-center 阶段二/,/^fi$/d' "$bashrc" \
-        && log "已移除 bashrc 挂载与钩子（备份: $bashrc.uninstall-bak）"
+        && log "已移除 bashrc 主题块/挂载/钩子（备份: $bashrc.uninstall-bak）"
     fi
   fi
 fi
 rm_path "$BASE_HOME/.control-setup-done" " 阶段二完成标记"
+
+# 主题落地文件（.theme-bak 备份一并询问）
+rm_path "$BASE_HOME/.bashrc.d"        " bash 主题目录（control.sh/welcome.sh）"
+rm_path "$BASE_HOME/.gitconfig"       " git 主题配置"
+rm_path "$BASE_HOME/.tmux.conf"       " tmux 主题"
+rm_path "$BASE_HOME/.inputrc"         " readline 主题"
+rm_path "$BASE_HOME/.vimrc"           " vim 主题"
+rm_path "$BASE_HOME/.config/direnv"   " direnv 配置"
 
 # ── 3. 用户（agent + 工作用户）────────────────────────────────
 del_user() { # $1=用户名

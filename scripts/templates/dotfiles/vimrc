@@ -1,0 +1,8 @@
+" control-center vim 主题（~/.vimrc）
+set number
+set tabstop=2 shiftwidth=2 expandtab
+set hlsearch incsearch
+set ignorecase smartcase
+set laststatus=2
+set mouse=a
+syntax on

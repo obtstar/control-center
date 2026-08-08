@@ -39,8 +39,24 @@
 | fd/fdfind | fd-find | fd | fd-find | 查找 |
 | jq | jq | jq | jq | JSON 处理 |
 | gh | gh（部分源无，告警跳过） | github-cli | gh | GitHub CLI |
+| delta | git-delta | git-delta | git-delta | git pager（side-by-side diff，主题条件注入） |
 
 系统级必需（前置）：git、curl、docker（compose 测试环境，dev 已入 docker 组免 sudo）。
+
+## 3.5 环境主题（用户级 dotfiles，模板 `scripts/templates/dotfiles/`）
+
+| 文件 | 落地 | 说明 |
+|-----|------|------|
+| bashrc.block | `~/.bashrc` 标记段 | 托管块：control.env/JAVA_HOME/direnv/control.sh/welcome/venv 自动加载 |
+| bash.sh | `~/.bashrc.d/control.sh` | Git 分支 PS1、现代别名、历史去重、PATH |
+| welcome.sh | `~/.bashrc.d/welcome.sh` | 启动欢迎界面（<50ms 零网络，`CONTROL_WELCOME=0` 关闭） |
+| gitconfig | `~/.gitconfig` | obtstar 身份 + ff/prune/别名；delta/gh 段条件注入 |
+| tmux.conf | `~/.tmux.conf` | 鼠标/vi/Alt 切窗格/状态栏含分支 |
+| direnv.toml | `~/.config/direnv/` | whitelist 体系目录 |
+| inputrc | `~/.inputrc` | ignore-case 补全、↑↓ history-search |
+| vimrc | `~/.vimrc` | 行号/2 空格缩进/搜索高亮 |
+
+部署：`scripts/lib/dotfiles.sh`（`.theme-bak` 备份确认制）；venv 自动加载默认开（`CONTROL_VENV_AUTOLOAD=0` 关闭）。
 
 ## 4. Agent 组件（npm 用户级，registry=npmmirror）
 

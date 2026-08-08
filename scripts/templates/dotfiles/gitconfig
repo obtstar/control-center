@@ -1,18 +1,25 @@
-[init]
-	defaultBranch = main
-[pull]
-	ff = only
-[fetch]
-	prune = true
-[push]
-	default = current
+[user]
+	name = obtstar
+	email = dev@obtstar.com
 [core]
 	editor = vim
 	autocrlf = input
+	quotepath = false
+	longpaths = true
+	ignorecase = false
+[color]
+	ui = auto
 [alias]
-	st = status -sb
-	lg = log --oneline --graph --decorate -15
+	co = checkout
+	br = branch
+	ci = commit
+	st = status
+	last = log -1 HEAD
+	lg = log --oneline --graph --decorate --all
 	wt = worktree
-	unstage = reset HEAD --
-[worktree]
-	# gitdir 集中见 ~/.repos；本配置仅约定行为，路径不写死
+[push]
+	default = simple
+[pull]
+	rebase = false
+[init]
+	defaultBranch = main

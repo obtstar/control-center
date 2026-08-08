@@ -68,6 +68,8 @@ sudo bash ~/control-center/scripts/uninstall-env.sh
 - 国内镜像全覆盖（npm/pip/uv/Go/Node/GitHub 代理，交互选择）
 - 脚本工程化：`init-env.sh` 单文件 <300 行；`setup-env.sh` + `scripts/lib/*` 模块化；
   配置文件全部模板化（`scripts/templates/` → 渲染到 home，Git 管声明、home 放产物）
+- 环境主题：`scripts/templates/dotfiles/` 8 件套（bashrc 托管块/欢迎界面/git/tmux/direnv/inputrc/vimrc），
+  bashrc 标记段 upsert，venv 自动加载默认开，欢迎界面 `CONTROL_WELCOME=0` 可关
 
 ## 流水线（每阶段一审批闸）
 
