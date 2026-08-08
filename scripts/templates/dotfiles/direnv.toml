@@ -1,0 +1,9 @@
+# direnv 主题（~/.config/direnv/direnv.toml）
+[global]
+warn_timeout = "10s"
+hide_env_diff = true
+load_dotenv = false
+
+# 允许 control-center 体系内 .envrc 默认放行（其余仍需 direnv allow）
+[whitelist]
+prefix = [ "$HOME/control-center", "$HOME/wt", "$HOME/control-wiki" ]

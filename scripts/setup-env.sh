@@ -67,7 +67,7 @@ done
 # ── 加载模块 ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export TMPL_DIR="$SCRIPT_DIR/templates"   # 配置模板目录（render_tmpl 使用）
-for m in common check mirrors repos toolchain piekbs agent compose executor; do
+for m in common check mirrors repos toolchain piekbs agent compose executor dotfiles; do
   # shellcheck source=lib/*.sh
   source "$SCRIPT_DIR/lib/$m.sh"
 done
@@ -98,6 +98,7 @@ else
   step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/Go/pnpm）" "$SKIP_TOOLING" && init_toolchain
   step_enabled "PieKBS 知识库（二进制 + KB 初始化）" "$SKIP_TOOLING" && init_piekbs
   init_env_config
+  step_enabled "用户配置主题（bash/git/tmux/direnv）" "$SKIP_TOOLING" && init_dotfiles
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"
   if step_enabled "pi / openskills（Agent 工具链）" "$SKIP_TOOLING"; then
     install_pi_packages
