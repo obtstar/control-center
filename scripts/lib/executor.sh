@@ -24,7 +24,11 @@ init_executor() {
   init_toolchain
   init_mirrors
   mkdir -p "$BASE_HOME/executor"/{workspace,cache,logs}
-  chmod 750 "$BASE_HOME/executor"
+  # executor 目录由阶段一创建（agent:ogroup 2770）；dev 无 sudo 不能 chmod 他人目录，
+  # 仅属主/root 时调整权限，否则保持阶段一设置
+  if [[ -O "$BASE_HOME/executor" || $EUID -eq 0 ]]; then
+    chmod 770 "$BASE_HOME/executor" 2>/dev/null || true
+  fi
 
   # 专用执行账号（16.2：统一 agent 用户，不使用独立 home，配置落 .agent）
   if [[ $EUID -eq 0 ]]; then
