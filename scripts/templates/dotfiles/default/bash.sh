@@ -42,6 +42,7 @@ command -v rg &>/dev/null && alias grep='rg'
 command -v fd &>/dev/null && alias find='fd'
 command -v bat &>/dev/null && alias cat='bat'
 alias theme="$HOME/control-center/scripts/theme.sh"
+alias branch="$HOME/control-center/scripts/branch.sh"
 
 # ── 提示符（user@host:path (branch) $）──────────────────────
 __cc_git_branch() {

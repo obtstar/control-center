@@ -13,6 +13,7 @@ alias gs='git status -sb'
 alias gl='git log --oneline --graph --decorate -15'
 alias gd='git diff'
 alias theme="$HOME/control-center/scripts/theme.sh"
+alias branch="$HOME/control-center/scripts/branch.sh"
 
 __cc_git_branch() {
   local b

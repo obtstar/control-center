@@ -30,6 +30,8 @@ __cc_welcome() {
   if command -v docker &>/dev/null; then
     printf '\033[0;36m│\033[0m \033[0;33m🐳 容器\033[0m  d  ·  dc  ·  dps\n'
   fi
+  printf '\033[0;36m│\033[0m \033[0;33m🌿 分支\033[0m  branch new/list/sync/done/prune/release\n'
+  printf '\033[0;36m│\033[0m \033[0;33m🎨 主题\033[0m  theme list/use/off\n'
   printf '\033[0;36m└─\033[0m hint: setup-env.sh --check · CONTROL_WELCOME=0 关闭\n'
 }
 __cc_welcome
