@@ -84,6 +84,12 @@ EOF
       && echo '下载 Node LTS（npmmirror，非 tty 下无进度条，请稍候）...' \
       && nvm install --lts"
   try_install "uv（Python 版本/包管理）" uv "$uv_cmd" "$uv_cmd"
+  # Rust（rustup 用户级，rsproxy.cn 国内镜像）
+  local rust_cmd='set -o pipefail
+    export RUSTUP_DIST_SERVER="${RUSTUP_DIST_SERVER:-https://rsproxy.cn}"
+    export RUSTUP_UPDATE_ROOT="${RUSTUP_UPDATE_ROOT:-https://rsproxy.cn/rustup}"
+    curl -fsSL https://rsproxy.cn/rustup-init.sh | sh -s -- -y --default-toolchain stable --profile minimal'
+  try_install "Rust（rustup，rsproxy 镜像）" cargo "$rust_cmd" "$rust_cmd"
   try_install "Go（golang.google.cn 用户级）" go \
     'set -e
      ver=$(curl -fsSL "https://golang.google.cn/dl/?mode=json" | grep -oP "\"version\":\s*\"\Kgo[0-9.]+" | head -1)

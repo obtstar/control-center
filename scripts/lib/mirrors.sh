@@ -2,13 +2,16 @@
 # mirrors.sh — 由 setup-env.sh source（依赖 common.sh）
 
 init_mirrors() {
-  has_tty || { log "非交互模式，跳过国内镜像配置"; return 0; }
-  local ans
-  read -rp "配置国内镜像加速（npm→npmmirror、pip/uv→清华）？[Y/n] " ans </dev/tty
-  [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
-
-  read -rp "GitHub 加速代理前缀（如 https://gh.dpik.top，留空直连）: " ans </dev/tty
-  [[ -n "$ans" ]] && { GH_PROXY="$ans"; log "GitHub 代理: $GH_PROXY（作用于后续 nvm/uv 安装器下载）"; }
+  local ans=""
+  if [[ "${SETUP_YES:-0}" != "1" ]]; then
+    has_tty || { log "非交互模式，跳过国内镜像配置"; return 0; }
+    read -rp "配置国内镜像加速（npm→npmmirror、pip/uv→清华）？[Y/n] " ans </dev/tty
+    [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
+    read -rp "GitHub 加速代理前缀（如 https://gh.dpik.top，留空直连）: " ans </dev/tty
+    [[ -n "$ans" ]] && { GH_PROXY="$ans"; log "GitHub 代理: $GH_PROXY（作用于后续 nvm/uv 安装器下载）"; }
+  else
+    log "--yes：国内镜像按默认应用（npm/pip/uv/Go），GitHub 代理跳过"
+  fi
 
   # npm：npmmirror（用户级，需已装 npm）
   if as_target_user 'command -v npm' &>/dev/null; then

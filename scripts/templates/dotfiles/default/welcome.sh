@@ -5,7 +5,7 @@
 __cc_welcome() {
   local branch tools="" t wt_count
   branch=$(git -C "$HOME/control-center" branch --show-current 2>/dev/null)
-  for t in java node go docker uv pnpm; do
+  for t in java node go cargo docker uv pnpm; do
     command -v "$t" &>/dev/null && tools+="$t✓ "
   done
   wt_count=$(find "$HOME/wt" -mindepth 2 -maxdepth 2 -type d 2>/dev/null | wc -l)

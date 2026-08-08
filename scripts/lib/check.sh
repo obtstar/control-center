@@ -14,13 +14,13 @@ check_pre() {
   else
   local c p
   # 用户级工具链环境（nvm / uv / ~/.local/bin），校验前先加载
-  local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$PATH";'
+  local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH";'
   # 系统级必需命令
   for c in git curl; do
     as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
   done
-  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（清华镜像直装 ~/.local）、go（golang.google.cn）
-  for c in node npm pnpm java mvn go; do
+  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（清华镜像直装 ~/.local）、go（golang.google.cn）、cargo（rustup）
+  for c in node npm pnpm java mvn go cargo; do
     p="$(as_target_user "$user_env command -v $c" 2>/dev/null)" || p=""
     if [[ -z "$p" ]]; then
       chk_warn "缺少可选命令: $c"

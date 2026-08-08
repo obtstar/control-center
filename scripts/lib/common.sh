@@ -2,6 +2,7 @@
 # common.sh — 由 setup-env.sh source（依赖 common.sh）
 
 interactive_setup() {
+  [[ "${SETUP_YES:-0}" == "1" ]] && return 0   # --yes：全部默认
   has_tty || return 0
   local ans
   if [[ $OWNER_SET -eq 0 ]]; then
@@ -28,9 +29,10 @@ interactive_setup() {
   return 0
 }
 
-# 分步执行确认：flag 跳过 > 非交互默认执行 > 交互询问（回车默认 Y）
+# 分步执行确认：--yes 全执行 > flag 跳过 > 非交互默认执行 > 交互询问（回车默认 Y）
 step_enabled() { # $1=步骤名 $2=skip flag
   [[ "$2" == "1" ]] && { log "已跳过（--skip）: $1"; return 1; }
+  [[ "${SETUP_YES:-0}" == "1" ]] && return 0
   has_tty || return 0
   local ans
   read -rp "执行步骤「$1」？[Y/n] " ans </dev/tty
@@ -43,8 +45,9 @@ warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 # 交互判定：stdin 是 tty 或可打开 /dev/tty（覆盖 curl|bash、ssh 无 -t 场景）
 has_tty() { [[ -t 0 ]] || ( : </dev/tty ) >/dev/null 2>&1; }
 
-# 已存在文件的覆盖确认：交互时询问，非交互默认保留（返回 0=覆盖 1=保留）
+# 已存在文件的覆盖确认：交互时询问，非交互/--yes 默认保留（返回 0=覆盖 1=保留）
 confirm_overwrite() {
+  [[ "${SETUP_YES:-0}" == "1" ]] && return 1
   has_tty || return 1
   local ans
   read -rp "$1 已存在，是否覆盖？[y/N] " ans </dev/tty
@@ -52,7 +55,8 @@ confirm_overwrite() {
 }
 
 # ── 0. 环境校验（初始化前预检 / 初始化后后检）──────────────────
-confirm_opt() { # 非交互默认跳过
+confirm_opt() { # 非交互/--yes 默认跳过（安装升级类保持人工选择）
+  [[ "${SETUP_YES:-0}" == "1" ]] && return 1
   has_tty || return 1
   local ans
   read -rp "$1 [y/N] " ans </dev/tty
@@ -71,8 +75,8 @@ as_target_user() { # 以工作用户身份执行：root→su；本人→直接�
   fi
 }
 
-# 用户级工具链环境前缀（uv/nvm/~/.local/bin），探测与执行统一加载
-USER_ENV='export PATH="$HOME/.local/bin:$PATH"; source "$HOME/.nvm/nvm.sh" 2>/dev/null;'
+# 用户级工具链环境前缀（uv/nvm/cargo/~/.local/bin），探测与执行统一加载
+USER_ENV='export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"; source "$HOME/.nvm/nvm.sh" 2>/dev/null;'
 
 # root 时把路径归属工作用户（幂等，非 root 为 no-op）
 own() {

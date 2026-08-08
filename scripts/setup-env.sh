@@ -37,6 +37,7 @@ usage() {
   --skip-compose    跳过 docker-compose 生成与启动
   --skip-tooling    跳过语言/框架与 pi/openskills/PieKBS
   --check           仅做环境校验（预检 + 后检）
+  -y, --yes         简化交互：步骤全执行、安装/升级全跳过、镜像按默认、覆盖全保留
   -h, --help        显示帮助
 环境变量:
   NPM_REGISTRY      npm 镜像（默认 https://registry.npmmirror.com）
@@ -59,6 +60,7 @@ while [[ $# -gt 0 ]]; do
     --skip-compose) SKIP_COMPOSE=1; shift ;;
     --skip-tooling) SKIP_TOOLING=1; shift ;;
     --check) CHECK_ONLY=1; shift ;;
+    -y|--yes) SETUP_YES=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "未知参数: $1" >&2; usage; exit 1 ;;
   esac

@@ -27,6 +27,7 @@
 | pnpm | corepack | 随 Node | npmmirror（COREPACK_NPM_REGISTRY） |
 | uv | astral.sh 安装器 | `~/.local/bin` | 清华（UV_INDEX_URL + uv.toml） |
 | Go 最新稳定 | golang.google.cn JSON API | `~/.local/lib/go` | goproxy.cn（go env -w） |
+| Rust stable | rustup（rsproxy.cn 镜像） | `~/.cargo` / `~/.rustup` | RUSTUP_DIST_SERVER=rsproxy.cn |
 | Python | uv 管理 | `uv python` / `uv venv` | 清华 |
 
 ## 3. 系统级工具（阶段一，包管理器自适应）
