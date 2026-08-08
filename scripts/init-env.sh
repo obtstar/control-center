@@ -266,7 +266,7 @@ EOF
 
 # ── 系统级常用工具（与 git/curl 同级，包管理器自适应）─────────
 install_sys_packages() {
-  local want=(direnv tmux rg fd jq gh)
+  local want=(direnv tmux rg fd jq gh fzf)
   local missing=() p
   for p in "${want[@]}"; do
     case "$p" in

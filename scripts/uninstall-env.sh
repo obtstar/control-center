@@ -103,6 +103,9 @@ rm_path "$BASE_HOME/.nvm"        " nvm（用户级 Node.js）"
 rm_path "$BASE_HOME/.sdkman"     " SDKMAN!（遗留，新版已改清华直装）"
 rm_path "$BASE_HOME/.local/lib"  " 用户级 Java/Maven（清华镜像直装）"
 rm_path "$BASE_HOME/.local/bin/piekbs" " piekbs 二进制"
+for b in xh dust lazygit zoxide yazi glow fzf delta; do
+  rm_path "$BASE_HOME/.local/bin/$b" " CLI 工具 $b（用户级）"
+done
 rm_path "$BASE_HOME/control-wiki"   " PieKBS 知识库（raw/wiki/index）"
 rm_path "$BASE_HOME/.local/bin/uv" " uv（Python 管理）"
 rm_path "$BASE_HOME/.local/bin/uvx" " uvx"

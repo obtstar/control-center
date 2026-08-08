@@ -115,6 +115,9 @@ EOF
   else
     log "Docker 未安装：需系统级安装（apt install docker.io），跳过"
   fi
+
+  # 现代 CLI 工具（GitHub release 单二进制，用户级）
+  install_gh_tools
 }
 
 init_env_config() {
@@ -171,3 +174,73 @@ init_venv() { # $1=目标 home $2=属主（可选，root 时 chown）
 }
 
 # ── 5. pi / openskills 安装与配置 ─────────────────────────────
+
+# ── 现代 CLI 工具（GitHub release 单二进制，用户级 ~/.local/bin）─
+install_gh_tools() {
+  has_tty || return 0
+  # repo|asset 正则|bin（资产名按 uname -m 自动匹配 amd64/arm64）
+  local -a spec=(
+    "ducaale/xh|xh"
+    "bootandy/dust|dust"
+    "jesseduffield/lazygit|lazygit"
+    "ajeetdsouza/zoxide|zoxide"
+    "sxyazi/yazi|yazi"
+    "charmbracelet/glow|glow"
+    "junegunn/fzf|fzf"
+  )
+  local arch pat_suffix
+  arch=$(uname -m)
+  local missing=() entry repo bin
+  for entry in "${spec[@]}"; do
+    repo="${entry%%|*}"; bin="${entry##*|}"
+    command -v "$bin" &>/dev/null || missing+=("$repo|$bin")
+  done
+  [[ ${#missing[@]} -eq 0 ]] && { log "现代 CLI 工具已齐备（xh/dust/lazygit/zoxide/yazi/glow/fzf）"; return 0; }
+  local ans names=""
+  for entry in "${missing[@]}"; do names+="${entry##*|} "; done
+  read -rp "安装现代 CLI 工具（${names% }，GitHub release 用户级）？[y/N] " ans </dev/tty
+  [[ "$ans" =~ ^[yY](es)?$ ]] || { log "跳过: $names"; return 0; }
+
+  # 通用安装器脚本（zip 需要 python3，缺失时跳过 zip 包）
+  local helper="$BASE_HOME/scripts/gh-tool-install.sh"
+  cat > "$helper" <<'EOS'
+#!/usr/bin/env bash
+set -e
+repo=$1 pat=$2 bin=$3 gh=${4:-}
+url=$(curl -fsSL "${gh}https://api.github.com/repos/$repo/releases/latest" \
+      | grep -o "https://[^\"]*$pat" | head -1)
+[[ -n "$url" ]] || { echo "未找到资产: $repo $pat" >&2; exit 1; }
+[[ -n "$gh" ]] && url="$gh/$url"
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+case "$url" in
+  *.zip)
+    command -v python3 &>/dev/null || { echo "zip 需 python3" >&2; exit 1; }
+    curl -fsSL "$url" -o "$tmp/a.zip"
+    python3 -m zipfile -e "$tmp/a.zip" "$tmp/x" ;;
+  *)
+    curl -fsSL "$url" | tar -xz -C "$tmp" ;;
+esac
+f=$(find "$tmp" -name "$bin" -type f | head -1)
+[[ -n "$f" ]] || { echo "包内未找到 $bin" >&2; exit 1; }
+mkdir -p "$HOME/.local/bin"
+cp "$f" "$HOME/.local/bin/$bin" && chmod +x "$HOME/.local/bin/$bin"
+echo "installed: $HOME/.local/bin/$bin"
+EOS
+  chmod +x "$helper"; own "$helper"
+
+  local gh="${GH_PROXY:+$GH_PROXY/}"
+  for entry in "${missing[@]}"; do
+    repo="${entry%%|*}"; bin="${entry##*|}"
+    local pat
+    case "$bin" in
+      lazygit|glow) pat="Linux_x86_64.tar.gz$" ;;
+      fzf)          pat="linux_amd64.tar.gz$" ;;
+      yazi)         pat="x86_64-unknown-linux-musl.zip$" ;;
+      *)            pat="x86_64-unknown-linux-musl.tar.gz$" ;;
+    esac
+    [[ "$arch" == "aarch64" ]] && pat="${pat//x86_64/aarch64}" && pat="${pat//amd64/arm64}"
+    log "安装 $bin（$repo）..."
+    as_target_user "bash '$helper' '$repo' '$pat' '$bin' '$gh'" \
+      || warn "$bin 安装失败（可稍后手动重跑: bash $helper '$repo' '$pat' '$bin' '$gh'）"
+  done
+}

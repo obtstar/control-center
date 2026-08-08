@@ -18,12 +18,26 @@ alias grep='grep --color=auto'
 # ── 别名 ─────────────────────────────────────────────────────
 alias ll='ls -alF'
 alias la='ls -A'
+alias l='ls -CF'
 alias ..='cd ..'
 alias ...='cd ../..'
+alias ....='cd ../../..'
+# Git
+alias g='git'
 alias gs='git status -sb'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
 alias gl='git log --oneline --graph --decorate -15'
+alias glo='git log --oneline'
 alias gd='git diff'
 alias wt='git worktree'
+# 容器
+command -v docker &>/dev/null && {
+  alias d='docker'
+  alias dc='docker compose'
+  alias dps='docker ps'
+}
 command -v rg &>/dev/null && alias grep='rg'
 command -v fd &>/dev/null && alias find='fd'
 command -v bat &>/dev/null && alias cat='bat'

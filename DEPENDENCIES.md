@@ -40,6 +40,12 @@
 | jq | jq | jq | jq | JSON 处理 |
 | gh | gh（部分源无，告警跳过） | github-cli | gh | GitHub CLI |
 | delta | git-delta | git-delta | git-delta | git pager（side-by-side diff，主题条件注入） |
+| fzf | fzf | fzf | fzf | 模糊查找（欢迎清单 🔧 成员） |
+
+现代 CLI 工具（用户级 `~/.local/bin`，GitHub release，GH_PROXY 加速；`scripts/gh-tool-install.sh` 通用安装器）：
+**xh**（HTTP 客户端）、**dust**（du 替代）、**lazygit**（Git TUI）、**zoxide**（智能 cd，bash 集成在主题块）、**yazi**（文件管理器 TUI，zip 包需 python3）、**glow**（Markdown 渲染）、**fzf**（系统包优先，缺失时 release 兜底）。
+
+别名见主题 `bash.sh`（g/gs/ga/gc/gp/gl/glo · d/dc/dps · l/ll/la · ..../....）。
 
 系统级必需（前置）：git、curl、docker（compose 测试环境，dev 已入 docker 组免 sudo）。
 

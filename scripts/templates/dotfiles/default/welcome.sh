@@ -14,6 +14,22 @@ __cc_welcome() {
   printf '\033[0;36m│\033[0m repo: control-center(%s)  wt: %s 个工作区\n' "${branch:-?}" "$wt_count"
   printf '\033[0;36m│\033[0m env: %s\n' "${tools:-（无工具链）}"
   printf '\033[0;36m│\033[0m wiki: piekbs:8766  llm: %s\n' "${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
+
+  local handy="" h
+  for h in xh dust jq lazygit zoxide yazi git tmux glow fzf; do
+    command -v "$h" &>/dev/null && handy+="$h "
+  done
+  [[ -n "$handy" ]] && printf '\033[0;36m│\033[0m \033[0;33m🔧 工具\033[0m  %s\n' "$handy"
+  printf '\033[0;36m│\033[0m \033[0;33m📁 文件\033[0m  l/ll/la 列表 · cat 查看\n'
+  printf '\033[0;36m│\033[0m \033[0;33m🔀 跳转\033[0m  .. / ... / .... 上级目录'
+  command -v zoxide &>/dev/null && printf ' · z 智能跳转'
+  printf '\n'
+  printf '\033[0;36m│\033[0m \033[0;33m🔀 Git\033[0m   g/gs/ga/gc/gp/gl/glo'
+  command -v delta &>/dev/null && printf ' · delta diff'
+  printf '\n'
+  if command -v docker &>/dev/null; then
+    printf '\033[0;36m│\033[0m \033[0;33m🐳 容器\033[0m  d  ·  dc  ·  dps\n'
+  fi
   printf '\033[0;36m└─\033[0m hint: setup-env.sh --check · CONTROL_WELCOME=0 关闭\n'
 }
 __cc_welcome

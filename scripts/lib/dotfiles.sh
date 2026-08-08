@@ -2,29 +2,39 @@
 # dotfiles.sh — 用户级 Linux 配置主题（由 setup-env.sh source，依赖 common.sh）
 # 模板：scripts/templates/dotfiles/；落地即备份，覆盖需确认
 
-init_dotfiles() {
-  log "用户配置主题（bashrc 块/bash/git/tmux/direnv/inputrc/vimrc/欢迎界面）"
-  local tpl="${TMPL_DIR:-$SCRIPT_DIR/templates}/dotfiles"
-  [[ -d "$tpl" ]] || { warn "主题模板缺失: $tpl"; return 0; }
+init_dotfiles() { # $1=主题名（可选，默认读 ~/.config/control-theme → default）
+  local theme="${1:-$(cat "$BASE_HOME/.config/control-theme" 2>/dev/null || echo default)}"
+  [[ "$theme" == "off" ]] && { log "主题已关闭（theme.sh use <name> 启用）"; return 0; }
+  local tpl="${TMPL_DIR:-$SCRIPT_DIR/templates}/dotfiles/$theme"
+  [[ -d "$tpl" ]] || { warn "主题目录缺失: $tpl"; return 0; }
+  log "用户配置主题: $theme"
 
-  # 1. bashrc 托管块（标记段 upsert + 旧散行收编）
-  upsert_bashrc_block "$tpl/bashrc.block"
+  # bashrc 托管块（标记段 upsert + 旧散行收编）
+  [[ -f "$tpl/bashrc.block" ]] && upsert_bashrc_block "$tpl/bashrc.block"
 
-  # 2. bash/欢迎界面 主题文件 → ~/.bashrc.d/
+  # bashrc.d 主题文件（主题里有什么部署什么）
   local rc_dir="$BASE_HOME/.bashrc.d"
   mkdir -p "$rc_dir"
-  deploy_dotfile "$tpl/bash.sh"    "$rc_dir/control.sh" 644
-  deploy_dotfile "$tpl/welcome.sh" "$rc_dir/welcome.sh" 644
+  local f
+  for f in bash.sh welcome.sh; do
+    [[ -f "$tpl/$f" ]] && deploy_dotfile "$tpl/$f" "$rc_dir/${f/bash.sh/control.sh}" 644
+  done
+  # 清理上一主题遗留的 bashrc.d 文件
+  for f in "$rc_dir"/*.sh; do
+    [[ -e "$f" ]] || continue
+    local base; base=$(basename "$f")
+    [[ "$base" == "control.sh" ]] && base="bash.sh"
+    [[ -f "$tpl/$base" ]] || { rm -f "$f"; log "清理旧主题文件: $f"; }
+  done
 
-  # 3. gitconfig（delta/gh 条件注入）
-  deploy_gitconfig "$tpl/gitconfig" "$BASE_HOME/.gitconfig"
-
-  # 4. tmux / direnv / inputrc / vimrc
-  deploy_dotfile "$tpl/tmux.conf"   "$BASE_HOME/.tmux.conf" 644
-  mkdir -p "$BASE_HOME/.config/direnv"
-  deploy_dotfile "$tpl/direnv.toml" "$BASE_HOME/.config/direnv/direnv.toml" 644
-  deploy_dotfile "$tpl/inputrc"     "$BASE_HOME/.inputrc" 644
-  deploy_dotfile "$tpl/vimrc"       "$BASE_HOME/.vimrc" 644
+  [[ -f "$tpl/gitconfig" ]] && deploy_gitconfig "$tpl/gitconfig" "$BASE_HOME/.gitconfig"
+  [[ -f "$tpl/tmux.conf" ]] && deploy_dotfile "$tpl/tmux.conf" "$BASE_HOME/.tmux.conf" 644
+  if [[ -f "$tpl/direnv.toml" ]]; then
+    mkdir -p "$BASE_HOME/.config/direnv"
+    deploy_dotfile "$tpl/direnv.toml" "$BASE_HOME/.config/direnv/direnv.toml" 644
+  fi
+  [[ -f "$tpl/inputrc" ]] && deploy_dotfile "$tpl/inputrc" "$BASE_HOME/.inputrc" 644
+  [[ -f "$tpl/vimrc" ]] && deploy_dotfile "$tpl/vimrc" "$BASE_HOME/.vimrc" 644
 }
 
 # bashrc 标记块 upsert：有标记替换段内，无标记追加；收编历史散行
@@ -75,7 +85,9 @@ EOF
     log "gitconfig: 含 gh credential 段"
   fi
   if [[ -f "$dest" ]] && ! cmp -s "$tmp" "$dest"; then
-    confirm_overwrite "$dest（与主题不一致，备份后覆盖）" || { rm -f "$tmp"; log "保留: $dest"; return 0; }
+    if [[ "${DOTFILES_FORCE:-0}" != "1" ]] && ! confirm_overwrite "$dest（与主题不一致，备份后覆盖）"; then
+      rm -f "$tmp"; log "保留: $dest"; return 0
+    fi
     cp "$dest" "$dest.theme-bak"
     log "已备份: $dest.theme-bak"
   fi
@@ -85,10 +97,13 @@ EOF
   log "已部署: $dest"
 }
 
-deploy_dotfile() { # $1=模板 $2=目标 $3=权限
+deploy_dotfile() { # $1=模板 $2=目标 $3=权限（DOTFILES_FORCE=1 时跳过覆盖确认）
   local src="$1" dest="$2" mode="$3"
   if [[ -f "$dest" ]] && ! cmp -s "$src" "$dest"; then
-    confirm_overwrite "$dest（与主题不一致，备份后覆盖）" || { log "保留: $dest"; return 0; }
+    if [[ "${DOTFILES_FORCE:-0}" != "1" ]] && ! confirm_overwrite "$dest（与主题不一致，备份后覆盖）"; then
+      log "保留: $dest"
+      return 0
+    fi
     cp "$dest" "$dest.theme-bak"
     log "已备份: $dest.theme-bak"
   fi

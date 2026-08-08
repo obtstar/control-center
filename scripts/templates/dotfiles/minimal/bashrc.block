@@ -1,0 +1,6 @@
+# >>> control-center theme >>>
+[[ -f ~/control.env ]] && source ~/control.env
+[[ -f ~/.bashrc.d/control.sh ]] && source ~/.bashrc.d/control.sh
+[[ "${CONTROL_VENV_AUTOLOAD:-1}" != "0" && -f ~/.venv/bin/activate && -z "$VIRTUAL_ENV" ]] \
+  && source ~/.venv/bin/activate
+# <<< control-center theme <<<
