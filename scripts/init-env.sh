@@ -315,6 +315,41 @@ install_sys_packages() {
   log "系统工具安装完成（direnv 钩子由阶段二写入 bashrc）"
 }
 
+# ── Docker（可选项，compose 测试环境载体）─────────────────────
+install_docker() {
+  if command -v docker &>/dev/null; then
+    log "docker 已安装，跳过"
+    return 0
+  fi
+  has_tty || { log "非交互，跳过 docker 安装"; return 0; }
+  local ans
+  read -rp "安装 Docker（compose 测试环境需要）？[y/N] " ans </dev/tty
+  [[ "$ans" =~ ^[yY](es)?$ ]] || { log "跳过: docker"; return 0; }
+  if command -v apt-get &>/dev/null; then
+    apt-get update -qq && apt-get install -y -qq docker.io
+    apt-get install -y -qq docker-compose-v2 2>/dev/null \
+      || apt-get install -y -qq docker-compose-plugin 2>/dev/null \
+      || warn "compose 插件安装失败（可后续手动: apt install docker-compose-v2）"
+  elif command -v pacman &>/dev/null; then
+    pacman -Sy --noconfirm --needed docker docker-compose
+  elif command -v dnf &>/dev/null; then
+    dnf install -y docker docker-compose-plugin \
+      || warn "compose 插件失败（可后续手动: dnf install docker-compose-plugin）"
+  else
+    warn "无法识别包管理器，请手动安装 docker"
+    return 0
+  fi
+  if command -v systemctl &>/dev/null; then
+    systemctl enable --now docker 2>/dev/null \
+      || warn "docker 服务启动失败（WSL 无 systemd？请手动: sudo dockerd 或 sudo service docker start）"
+  else
+    warn "无 systemctl（WSL？），请手动启动 dockerd"
+  fi
+  # docker 组装于安装后，补一次用户加组（init_users_dirs 时组尚不存在）
+  getent group docker &>/dev/null && usermod -aG docker "$OWNER" \
+    && log "docker 安装完成，$OWNER 已加入 docker 组（免 sudo，重新登录生效）"
+}
+
 # ── main ──────────────────────────────────────────────────────
 if [[ $CHECK_ONLY -eq 1 ]]; then
   check_pre
@@ -326,6 +361,7 @@ interactive_setup
 check_pre
 init_users_dirs
 install_sys_packages
+install_docker
 clone_control_center
 install_setup_hook
 check_post || true
