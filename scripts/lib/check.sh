@@ -15,11 +15,23 @@ check_pre() {
   local c p
   # 用户级工具链环境（nvm / uv / ~/.local/bin），校验前先加载
   local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH";'
-  # 系统级必需命令
-  for c in git curl; do
-    as_target_user "command -v $c" >/dev/null 2>&1 && chk_pass "命令: $c" || chk_fail "缺少命令: $c"
+  # 命令/CLI 工具统一校验：git/curl 必需（缺失 FAIL），其余可选（缺失 WARN）
+  local cli=(git curl tmux jq xh dust lazygit zoxide yazi glow fzf)
+  local ok="" miss="" req=""
+  for c in "${cli[@]}"; do
+    if as_target_user "$user_env command -v $c" >/dev/null 2>&1; then
+      ok+="$c "
+    elif [[ "$c" == "git" || "$c" == "curl" ]]; then
+      req+="$c "
+    else
+      miss+="$c "
+    fi
   done
-  # 用户级优先命令：node/npm/pnpm（nvm+corepack）、java/mvn（清华镜像直装 ~/.local）、go（golang.google.cn）、cargo（rustup）
+  [[ -n "$ok" ]] && chk_pass "CLI 工具: ${ok% }"
+  [[ -n "$req" ]] && chk_fail "CLI 工具缺失（必需）: ${req% }"
+  [[ -n "$miss" ]] && chk_warn "CLI 工具缺失（可选）: ${miss% }"
+
+  # 语言运行时（用户级优先）：node/npm/pnpm/java/mvn/go/cargo
   for c in node npm pnpm java mvn go cargo; do
     p="$(as_target_user "$user_env command -v $c" 2>/dev/null)" || p=""
     if [[ -z "$p" ]]; then
@@ -37,19 +49,6 @@ check_pre() {
   # docker：系统级守护进程，单独校验
   as_target_user "command -v docker" >/dev/null 2>&1 \
     && chk_pass "命令: docker（可选）" || chk_warn "缺少可选命令: docker"
-
-  # 现代 CLI 工具：单行汇总（可选，缺失不 FAIL）
-  local cli=(git tmux jq xh dust lazygit zoxide yazi glow fzf)
-  local ok="" miss=""
-  for c in "${cli[@]}"; do
-    if as_target_user "$user_env command -v $c" >/dev/null 2>&1; then
-      ok+="$c "
-    else
-      miss+="$c "
-    fi
-  done
-  [[ -n "$ok" ]] && chk_pass "CLI 工具: ${ok% }"
-  [[ -n "$miss" ]] && chk_warn "CLI 工具缺失（可选）: ${miss% }"
 
   # Agent 工具组（pi/openskills/openwiki）
   local agents=(pi openskills openwiki) aok="" amiss=""
@@ -106,7 +105,8 @@ check_post() {
   # 文件/目录检查一律在工作用户上下文（/home/dev 750，其他用户读不到）
   t_test() { as_target_user "[[ $* ]]"; }
   # 尚未初始化：整体提示，不逐项 FAIL
-  if [[ $EXECUTOR -eq 0 ]] && t_test "! -e '$BASE_HOME/control.env' -a ! -d '$BASE_HOME/control-center'"; then
+  if [[ $EXECUTOR -eq 0 ]] \
+     && as_target_user "[[ ! -e '$BASE_HOME/control.env' ]] && [[ ! -d '$BASE_HOME/control-center' ]]"; then
     chk_warn "环境尚未初始化（属预期，执行 sudo bash scripts/init-env.sh 后复检）"
     return 0
   fi
