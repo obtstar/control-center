@@ -88,6 +88,13 @@ if ! id "$OWNER" &>/dev/null; then
   echo "工作用户 $OWNER 不存在，请先执行阶段一: sudo bash scripts/init-env.sh" >&2
   exit 1
 fi
+# 上下文校验：必须能以工作用户身份执行（dev 本人 / root su / 免密 sudo），
+# 否则仓库会克隆到错误身份下
+if ! as_target_user 'true' &>/dev/null; then
+  echo "无法切换到工作用户 $OWNER 的上下文（当前: $(id -un)）。" >&2
+  echo "请以 $OWNER 登录执行，或用 root/sudo 执行（自动 su 到 $OWNER）。" >&2
+  exit 1
+fi
 
 check_pre
 if [[ $EXECUTOR -eq 1 ]]; then
@@ -97,8 +104,8 @@ if [[ $EXECUTOR -eq 1 ]]; then
 else
   init_mirrors
   step_enabled "仓库同步（registry/repos.yaml 清单）" "$SKIP_REPOS" && sync_repos
-  step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/Go/pnpm）" "$SKIP_TOOLING" && init_toolchain
   step_enabled "PieKBS 知识库（二进制 + KB 初始化）" "$SKIP_TOOLING" && init_piekbs
+  step_enabled "语言/框架工具链（JDK+Maven/nvm/uv/Go/pnpm）" "$SKIP_TOOLING" && init_toolchain
   init_env_config
   step_enabled "用户配置主题（bashrc/git/tmux/direnv/inputrc/vimrc/欢迎界面）" "$SKIP_TOOLING" && init_dotfiles
   step_enabled "Python 虚拟环境（uv venv .venv）" "$SKIP_TOOLING" && init_venv "$BASE_HOME" "$OWNER"

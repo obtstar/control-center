@@ -115,11 +115,11 @@ EOF
       && corepack enable && corepack prepare pnpm@latest --activate' \
     'export COREPACK_NPM_REGISTRY="${COREPACK_NPM_REGISTRY:-https://registry.npmmirror.com}"; \
       source "$HOME/.nvm/nvm.sh" 2>/dev/null && corepack prepare pnpm@latest --activate'
-  if as_target_user 'command -v docker' &>/dev/null; then
+  if as_target_user 'command -v dockerd-rootless-setuptool.sh' &>/dev/null; then
     try_install "Docker rootless 模式（用户级守护进程）" "" \
       'dockerd-rootless-setuptool.sh install'
   else
-    log "Docker 未安装：需系统级安装（apt install docker.io），跳过"
+    log "无 dockerd-rootless-setuptool.sh（docker.io 不含 rootless 组件），跳过 rootless"
   fi
 
   # 现代 CLI 工具（GitHub release 单二进制，用户级）
