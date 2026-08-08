@@ -266,7 +266,7 @@ EOF
 
 # ── 系统级常用工具（与 git/curl 同级，包管理器自适应）─────────
 install_sys_packages() {
-  local want=(direnv tmux rg fd jq gh fzf)
+  local want=(direnv tmux rg fd jq gh fzf grep awk sed find xargs)
   local missing=() p
   for p in "${want[@]}"; do
     case "$p" in
@@ -283,7 +283,11 @@ install_sys_packages() {
   local base=() gh_pkg=""
   if command -v apt-get &>/dev/null; then
     for p in "${missing[@]}"; do
-      case "$p" in fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;; *) base+=("$p");; esac
+      case "$p" in
+        fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;;
+        awk) base+=(gawk);; find|xargs) base+=(findutils);;
+        *) base+=("$p");;
+      esac
     done
     apt-get update -qq
     if [[ ${#base[@]} -gt 0 ]]; then
@@ -291,12 +295,20 @@ install_sys_packages() {
     fi
   elif command -v pacman &>/dev/null; then
     for p in "${missing[@]}"; do
-      case "$p" in rg) base+=(ripgrep);; gh) base+=(github-cli);; *) base+=("$p");; esac
+      case "$p" in
+        rg) base+=(ripgrep);; gh) base+=(github-cli);;
+        awk) base+=(gawk);; find|xargs) base+=(findutils);;
+        *) base+=("$p");;
+      esac
     done
     pacman -Sy --noconfirm --needed "${base[@]}"
   elif command -v dnf &>/dev/null; then
     for p in "${missing[@]}"; do
-      case "$p" in fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;; *) base+=("$p");; esac
+      case "$p" in
+        fd) base+=(fd-find);; rg) base+=(ripgrep);; gh) gh_pkg=gh;;
+        awk) base+=(gawk);; find|xargs) base+=(findutils);;
+        *) base+=("$p");;
+      esac
     done
     dnf install -y "${base[@]}"
   else

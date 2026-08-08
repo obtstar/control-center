@@ -16,7 +16,7 @@ check_pre() {
   # 用户级工具链环境（nvm / uv / ~/.local/bin），校验前先加载
   local user_env='source "$HOME/.nvm/nvm.sh" 2>/dev/null; export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH";'
   # 命令/CLI 工具统一校验：git/curl 必需（缺失 FAIL），其余可选（缺失 WARN）
-  local cli=(git curl tmux jq xh dust lazygit zoxide yazi glow fzf)
+  local cli=(git curl tmux jq grep awk sed find xargs xh dust lazygit zoxide yazi glow fzf)
   local ok="" miss="" req=""
   for c in "${cli[@]}"; do
     if as_target_user "$user_env command -v $c" >/dev/null 2>&1; then
