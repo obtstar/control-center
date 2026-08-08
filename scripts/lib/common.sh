@@ -7,11 +7,11 @@ interactive_setup() {
   local ans
   if [[ $OWNER_SET -eq 0 ]]; then
     while true; do
-      read -rp "工作用户名（新建/使用的 Linux 账号，回车默认 $OWNER）: " ans </dev/tty
+      ask "工作用户名（新建/使用的 Linux 账号，回车默认 $OWNER）: " ans
       [[ -z "$ans" || "$ans" == "$OWNER" ]] && break
       # useradd 命名规则，防止误输入（如把 sudo 密码填进来）
       if [[ "$ans" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-        read -rp "确认使用工作用户「$ans」？[y/N] " ans2 </dev/tty
+        ask "确认使用工作用户「$ans」？[y/N] " ans2
         if [[ "$ans2" =~ ^[yY](es)?$ ]]; then
           OWNER="$ans"
           BASE_HOME="/home/$OWNER"
@@ -23,7 +23,7 @@ interactive_setup() {
     done
   fi
   if [[ $EXECUTOR_SET -eq 0 ]]; then
-    read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans </dev/tty
+    ask "节点模式：1) 编排节点  2) 执行节点 [1]: " ans
     [[ "$ans" == "2" ]] && EXECUTOR=1
   fi
   return 0
@@ -35,7 +35,7 @@ step_enabled() { # $1=步骤名 $2=skip flag
   [[ "${SETUP_YES:-0}" == "1" ]] && return 0
   has_tty || return 0
   local ans
-  read -rp "执行步骤「$1」？[Y/n] " ans </dev/tty
+  ask "执行步骤「$1」？[Y/n] " ans
   [[ ! "$ans" =~ ^[nN](o)?$ ]]
 }
 
@@ -50,7 +50,7 @@ confirm_overwrite() {
   [[ "${SETUP_YES:-0}" == "1" ]] && return 1
   has_tty || return 1
   local ans
-  read -rp "$1 已存在，是否覆盖？[y/N] " ans </dev/tty
+  ask "$1 已存在，是否覆盖？[y/N] " ans
   [[ "$ans" =~ ^[yY](es)?$ ]]
 }
 
@@ -59,7 +59,7 @@ confirm_opt() { # 非交互/--yes 默认跳过（安装升级类保持人工选�
   [[ "${SETUP_YES:-0}" == "1" ]] && return 1
   has_tty || return 1
   local ans
-  read -rp "$1 [y/N] " ans </dev/tty
+  ask "$1 [y/N] " ans
   [[ "$ans" =~ ^[yY](es)?$ ]]
 }
 
@@ -118,4 +118,14 @@ render_tmpl() { # $1=模板名（相对 TMPL_DIR）$2=目标路径 $3=权限（�
   fi
   [[ -n "$mode" ]] && chmod "$mode" "$dest"
   return 0
+}
+
+# 交互读取：优先 /dev/tty（curl|bash 场景），打不开时回退 stdin
+# （接力场景 root 以 </dev/tty 传入 tty；部分发行版 dev 无权打开 /dev/tty）
+ask() { # $1=提示 $2=变量名
+  local __a=""
+  if ! ask "$1" __a 2>/dev/null; then
+    read -rp "$1" __a || __a=""
+  fi
+  printf -v "$2" '%s' "$__a"
 }

@@ -5,13 +5,13 @@ init_mirrors() {
   local ans=""
   if [[ "${SETUP_YES:-0}" != "1" ]]; then
     has_tty || { log "非交互模式，跳过国内镜像配置"; return 0; }
-    read -rp "配置国内镜像加速（npm→npmmirror、pip/uv→清华）？[Y/n] " ans </dev/tty
+    ask "配置国内镜像加速（npm→npmmirror、pip/uv→清华）？[Y/n] " ans
     [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
     echo "GitHub 加速代理：" >&2
     echo "  1) https://gh.dpik.top" >&2
     echo "  2) https://github.xxlab.tech" >&2
     echo "  回车直连（或输入其他前缀）" >&2
-    read -rp "选择 [1/2/前缀]: " ans </dev/tty
+    ask "选择 [1/2/前缀]: " ans
     case "$ans" in
       1) GH_PROXY="https://gh.dpik.top" ;;
       2) GH_PROXY="https://github.xxlab.tech" ;;

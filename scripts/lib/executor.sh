@@ -5,7 +5,7 @@ init_executor() {
   # 未指定服务端地址时交互式询问
   if [[ -z "$CONTROL_API" ]]; then
     if has_tty; then
-      read -rp "请输入服务端（编排节点）地址，如 http://192.168.1.10:8080: " CONTROL_API </dev/tty
+      ask "请输入服务端（编排节点）地址，如 http://192.168.1.10:8080: " CONTROL_API
     fi
     [[ -z "$CONTROL_API" ]] && { echo "executor 模式需 --control-api URL 或交互输入" >&2; exit 1; }
   fi

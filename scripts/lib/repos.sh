@@ -78,7 +78,7 @@ resolve_remote_base() {
     echo "  1) ssh   git@${host/\//:}" >&2
     echo "  2) http  https://$host" >&2
     echo "  回车跳过（仅本地骨架，不关联远程）" >&2
-    read -rp "选择 [1/2]: " proto </dev/tty
+    ask "选择 [1/2]: " proto
     [[ "$proto" == "1" ]] && proto=ssh
     [[ "$proto" == "2" ]] && proto=http
   fi

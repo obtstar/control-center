@@ -204,7 +204,7 @@ install_gh_tools() {
   [[ ${#missing[@]} -eq 0 ]] && { log "现代 CLI 工具已齐备（xh/dust/lazygit/zoxide/yazi/glow/fzf）"; return 0; }
   local ans names=""
   for entry in "${missing[@]}"; do names+="${entry##*|} "; done
-  read -rp "安装现代 CLI 工具（${names% }，GitHub release 用户级）？[y/N] " ans </dev/tty
+  ask "安装现代 CLI 工具（${names% }，GitHub release 用户级）？[y/N] " ans
   [[ "$ans" =~ ^[yY](es)?$ ]] || { log "跳过: $names"; return 0; }
 
   # 通用安装器脚本（zip 需要 python3，缺失时跳过 zip 包）

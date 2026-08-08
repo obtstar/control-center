@@ -33,10 +33,10 @@ init_piekbs() {
       echo "知识库来源：" >&2
       echo "  1) 空库（piekbs init 新建）" >&2
       echo "  2) 指定 Git 仓库克隆（已有 KB 内容）" >&2
-      read -rp "选择 [1/2]: " ans </dev/tty
+      ask "选择 [1/2]: " ans
       if [[ "$ans" == "2" ]]; then
         local def_remote="${CONTROL_WIKI_REMOTE:-${GIT_REMOTE_BASE:+$GIT_REMOTE_BASE/control-wiki.git}}"
-        read -rp "KB Git 仓库地址${def_remote:+ [$def_remote]}: " kb_src </dev/tty
+        ask "KB Git 仓库地址${def_remote:+ [$def_remote]}: " kb_src
         kb_src="${kb_src:-$def_remote}"
       fi
     fi

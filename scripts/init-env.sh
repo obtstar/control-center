@@ -58,6 +58,15 @@ log() { printf '\033[1;34m[init]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 has_tty() { [[ -t 0 ]] || ( : </dev/tty ) >/dev/null 2>&1; }
 
+# 交互读取：优先 /dev/tty，打不开时回退 stdin（接力场景 root 传入 tty）
+ask() { # $1=提示 $2=变量名
+  local __a=""
+  if ! read -rp "$1" __a </dev/tty 2>/dev/null; then
+    read -rp "$1" __a || __a=""
+  fi
+  printf -v "$2" '%s' "$__a"
+}
+
 # ── 环境校验（预检/后检共用）──────────────────────────────────
 CHECK_FAIL=0
 chk_pass() { printf '  \033[1;32m[PASS]\033[0m %s\n' "$*"; }
@@ -120,10 +129,10 @@ interactive_setup() {
   local ans ans2
   if [[ $OWNER_SET -eq 0 ]]; then
     while true; do
-      read -rp "工作用户名（新建/使用的 Linux 账号，回车默认 $OWNER）: " ans </dev/tty
+      ask "工作用户名（新建/使用的 Linux 账号，回车默认 $OWNER）: " ans
       [[ -z "$ans" || "$ans" == "$OWNER" ]] && break
       if [[ "$ans" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
-        read -rp "确认使用工作用户「$ans」？[y/N] " ans2 </dev/tty
+        ask "确认使用工作用户「$ans」？[y/N] " ans2
         if [[ "$ans2" =~ ^[yY](es)?$ ]]; then
           OWNER="$ans"; BASE_HOME="/home/$OWNER"; break
         fi
@@ -133,7 +142,7 @@ interactive_setup() {
     done
   fi
   if [[ $EXECUTOR_SET -eq 0 ]]; then
-    read -rp "节点模式：1) 编排节点  2) 执行节点 [1]: " ans </dev/tty
+    ask "节点模式：1) 编排节点  2) 执行节点 [1]: " ans
     [[ "$ans" == "2" ]] && EXECUTOR=1
   fi
   return 0
@@ -148,11 +157,11 @@ init_users_dirs() {
     log "创建工作用户: $OWNER（home: /home/$OWNER）"
     if has_tty; then
       local ans invoker
-      read -rp "为 $OWNER 设置登录密码？[y/N] " ans </dev/tty
+      ask "为 $OWNER 设置登录密码？[y/N] " ans
       [[ "$ans" =~ ^[yY](es)?$ ]] && passwd "$OWNER"
       invoker="${SUDO_USER:-}"
       if [[ -n "$invoker" && -s "/home/$invoker/.ssh/authorized_keys" ]]; then
-        read -rp "复制 $invoker 的 SSH 公钥到 $OWNER（免密登录）？[Y/n] " ans </dev/tty
+        ask "复制 $invoker 的 SSH 公钥到 $OWNER（免密登录）？[Y/n] " ans
         if [[ ! "$ans" =~ ^[nN](o)?$ ]]; then
           mkdir -p "$BASE_HOME/.ssh"
           cp "/home/$invoker/.ssh/authorized_keys" "$BASE_HOME/.ssh/authorized_keys"
@@ -211,7 +220,7 @@ resolve_remote_base() {
     echo "  1) ssh   git@${host/\//:}" >&2
     echo "  2) http  https://$host" >&2
     echo "  回车跳过（不克隆，仅创建用户与目录）" >&2
-    read -rp "选择 [1/2]: " proto </dev/tty
+    ask "选择 [1/2]: " proto
     [[ "$proto" == "1" ]] && proto=ssh
     [[ "$proto" == "2" ]] && proto=http
   fi
@@ -277,7 +286,7 @@ install_sys_packages() {
   [[ ${#missing[@]} -eq 0 ]] && { log "系统工具已齐备: ${want[*]}"; return 0; }
   has_tty || { log "非交互，跳过系统工具安装: ${missing[*]}"; return 0; }
   local ans
-  read -rp "安装系统级工具 ${missing[*]}？[Y/n] " ans </dev/tty
+  ask "安装系统级工具 ${missing[*]}？[Y/n] " ans
   [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过: ${missing[*]}"; return 0; }
 
   local base=() gh_pkg=""
@@ -360,7 +369,7 @@ install_docker() {
   fi
   has_tty || { log "非交互，跳过 docker 安装"; return 0; }
   local ans
-  read -rp "安装 Docker（compose 测试环境需要）？[y/N] " ans </dev/tty
+  ask "安装 Docker（compose 测试环境需要）？[y/N] " ans
   [[ "$ans" =~ ^[yY](es)?$ ]] || { log "跳过: docker"; return 0; }
   if command -v apt-get &>/dev/null; then
     apt-get update -qq && apt-get install -y -qq docker.io
@@ -413,11 +422,15 @@ EOF
 # 可选：立即接力阶段二（以工作用户身份执行，非交互/--executor 时跳过）
 if [[ -x "$BASE_HOME/control-center/scripts/setup-env.sh" ]] && has_tty; then
   ans=""
-  read -rp "立即执行阶段二（以 $OWNER 身份）？[y/N] " ans </dev/tty
+  ask "立即执行阶段二（以 $OWNER 身份）？[y/N] " ans
   if [[ "$ans" =~ ^[yY](es)?$ ]]; then
     log "接力阶段二: su - $OWNER -c setup-env.sh$SETUP_ARGS"
-    # script 分配 pty：部分发行版 /dev/tty 为 620 root:tty，dev 无法直接打开，
-    # 会导致阶段二误判"非交互"而跳过全部询问
-    exec script -qec "su - '$OWNER' -c 'bash \"$BASE_HOME/control-center/scripts/setup-env.sh\"$SETUP_ARGS'" /dev/null
+    # root 把 tty 作为 stdin 传给阶段二（dev 无权打开 /dev/tty 的系统上
+    # 阶段二提示经 ask() 回退读 stdin）；无 ctty 时直接传原 stdin
+    if ( : </dev/tty ) 2>/dev/null; then
+      exec su - "$OWNER" -c "bash '$BASE_HOME/control-center/scripts/setup-env.sh'$SETUP_ARGS" < /dev/tty
+    else
+      exec su - "$OWNER" -c "bash '$BASE_HOME/control-center/scripts/setup-env.sh'$SETUP_ARGS"
+    fi
   fi
 fi
