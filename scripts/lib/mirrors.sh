@@ -7,8 +7,18 @@ init_mirrors() {
     has_tty || { log "非交互模式，跳过国内镜像配置"; return 0; }
     read -rp "配置国内镜像加速（npm→npmmirror、pip/uv→清华）？[Y/n] " ans </dev/tty
     [[ "$ans" =~ ^[nN](o)?$ ]] && { log "跳过国内镜像配置"; return 0; }
-    read -rp "GitHub 加速代理前缀（如 https://gh.dpik.top，留空直连）: " ans </dev/tty
-    [[ -n "$ans" ]] && { GH_PROXY="$ans"; log "GitHub 代理: $GH_PROXY（作用于后续 nvm/uv 安装器下载）"; }
+    echo "GitHub 加速代理：" >&2
+    echo "  1) https://gh.dpik.top" >&2
+    echo "  2) https://github.xxlab.tech" >&2
+    echo "  回车直连（或输入其他前缀）" >&2
+    read -rp "选择 [1/2/前缀]: " ans </dev/tty
+    case "$ans" in
+      1) GH_PROXY="https://gh.dpik.top" ;;
+      2) GH_PROXY="https://github.xxlab.tech" ;;
+      "") ;;
+      *) GH_PROXY="$ans" ;;
+    esac
+    [[ -n "$GH_PROXY" ]] && log "GitHub 代理: $GH_PROXY（作用于后续 nvm/uv 安装器下载）"
   else
     log "--yes：国内镜像按默认应用（npm/pip/uv/Go），GitHub 代理跳过"
   fi

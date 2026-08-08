@@ -324,6 +324,31 @@ install_sys_packages() {
       dnf install -y gh 2>/dev/null || warn "gh 安装失败，跳过"
     fi
   fi
+
+  # 现代 CLI 工具：包管理器优先（pacman 全量；apt 部分），
+  # 缺包的由阶段二 install_gh_tools 以 GitHub release 兜底
+  local extras=() e
+  if command -v pacman &>/dev/null; then
+    for e in xh dust lazygit zoxide yazi glow; do
+      command -v "$e" &>/dev/null || extras+=("$e")
+    done
+    if [[ ${#extras[@]} -gt 0 ]]; then
+      log "安装现代 CLI（pacman）: ${extras[*]}"
+      pacman -Sy --noconfirm --needed "${extras[@]}" \
+        || warn "部分包安装失败，阶段二可用 GitHub release 兜底"
+    fi
+  elif command -v apt-get &>/dev/null; then
+    # apt 映射：du-dust 提供 dust；lazygit/yazi/glow 默认源没有 → 留阶段二
+    for e in xh du-dust zoxide; do
+      local ec="$e"; [[ "$e" == "du-dust" ]] && ec="dust"
+      command -v "$ec" &>/dev/null || extras+=("$e")
+    done
+    for e in ${extras[@]:-}; do
+      [[ -z "$e" ]] && continue
+      apt-get install -y -qq "$e" 2>/dev/null \
+        || warn "$e 不在当前源（阶段二以 GitHub release 安装）"
+    done
+  fi
   log "系统工具安装完成（direnv 钩子由阶段二写入 bashrc）"
 }
 
