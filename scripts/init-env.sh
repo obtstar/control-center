@@ -336,3 +336,13 @@ cat <<EOF
   1. 首次以 $OWNER 登录时自动执行（一次性，完成后标记 ~/.control-setup-done）
   2. 随时手动: su - $OWNER -c 'bash ~/control-center/scripts/setup-env.sh$SETUP_ARGS'
 EOF
+
+# 可选：立即接力阶段二（以工作用户身份执行，非交互/--executor 时跳过）
+if [[ -x "$BASE_HOME/control-center/scripts/setup-env.sh" ]] && has_tty; then
+  ans=""
+  read -rp "立即执行阶段二（以 $OWNER 身份）？[y/N] " ans </dev/tty
+  if [[ "$ans" =~ ^[yY](es)?$ ]]; then
+    log "接力阶段二: su - $OWNER -c setup-env.sh$SETUP_ARGS"
+    exec su - "$OWNER" -c "bash '$BASE_HOME/control-center/scripts/setup-env.sh'$SETUP_ARGS"
+  fi
+fi
