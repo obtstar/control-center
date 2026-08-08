@@ -15,11 +15,13 @@ __cc_welcome() {
   printf '\033[0;36m│\033[0m env: %s\n' "${tools:-（无工具链）}"
   printf '\033[0;36m│\033[0m wiki: piekbs:8766  llm: %s\n' "${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 
-  local handy="" h
-  for h in xh dust jq lazygit zoxide yazi git tmux glow fzf; do
-    command -v "$h" &>/dev/null && handy+="$h "
+  local handy="" miss="" h
+  for h in xh dust jq lazygit zoxide yazi git tmux glow fzf openwiki; do
+    if command -v "$h" &>/dev/null; then handy+="$h "; else miss+="$h "; fi
   done
-  [[ -n "$handy" ]] && printf '\033[0;36m│\033[0m \033[0;33m🔧 工具\033[0m  %s\n' "$handy"
+  printf '\033[0;36m│\033[0m \033[0;33m🔧 工具\033[0m  %s' "${handy:-（无）}"
+  [[ -n "$miss" ]] && printf '\033[2m· 缺: %s\033[0m' "${miss% }"
+  printf '\n'
   printf '\033[0;36m│\033[0m \033[0;33m📁 文件\033[0m  l/ll/la 列表 · cat 查看\n'
   printf '\033[0;36m│\033[0m \033[0;33m🔀 跳转\033[0m  .. / ... / .... 上级目录'
   command -v zoxide &>/dev/null && printf ' · z 智能跳转'

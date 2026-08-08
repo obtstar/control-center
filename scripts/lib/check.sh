@@ -38,6 +38,19 @@ check_pre() {
   as_target_user "command -v docker" >/dev/null 2>&1 \
     && chk_pass "命令: docker（可选）" || chk_warn "缺少可选命令: docker"
 
+  # 现代 CLI 工具 + openwiki：单行汇总（可选，缺失不 FAIL）
+  local cli=(git tmux jq xh dust lazygit zoxide yazi glow fzf openwiki)
+  local ok="" miss=""
+  for c in "${cli[@]}"; do
+    if as_target_user "$user_env command -v $c" >/dev/null 2>&1; then
+      ok+="$c "
+    else
+      miss+="$c "
+    fi
+  done
+  [[ -n "$ok" ]] && chk_pass "CLI 工具: ${ok% }"
+  [[ -n "$miss" ]] && chk_warn "CLI 工具缺失（可选）: ${miss% }"
+
   # docker 免 sudo：工作用户在 docker 组中
   if as_target_user "command -v docker" >/dev/null 2>&1; then
     as_target_user "id -nG | grep -qw docker" >/dev/null 2>&1 \
