@@ -214,7 +214,7 @@ install_gh_tools() {
 set -e
 repo=$1 pat=$2 bin=$3 gh=${4:-}
 url=$(curl -fsSL "${gh}https://api.github.com/repos/$repo/releases/latest" \
-      | grep -o "https://[^\"]*$pat" | head -1)
+      | grep -o "https://[^\"]*$pat" | grep -v 'sha256\|\.sig\|\.txt\|\.pem' | head -1)
 [[ -n "$url" ]] || { echo "未找到资产: $repo $pat" >&2; exit 1; }
 [[ -n "$gh" ]] && url="$gh/$url"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
@@ -239,10 +239,10 @@ EOS
     repo="${entry%%|*}"; bin="${entry##*|}"
     local pat
     case "$bin" in
-      lazygit|glow) pat="Linux_x86_64.tar.gz$" ;;
-      fzf)          pat="linux_amd64.tar.gz$" ;;
-      yazi)         pat="x86_64-unknown-linux-musl.zip$" ;;
-      *)            pat="x86_64-unknown-linux-musl.tar.gz$" ;;
+      lazygit|glow) pat="Linux_x86_64.tar.gz" ;;
+      fzf)          pat="linux_amd64.tar.gz" ;;
+      yazi)         pat="x86_64-unknown-linux-musl.zip" ;;
+      *)            pat="x86_64-unknown-linux-musl.tar.gz" ;;
     esac
     [[ "$arch" == "aarch64" ]] && pat="${pat//x86_64/aarch64}" && pat="${pat//amd64/arm64}"
     log "安装 $bin（$repo）..."

@@ -391,6 +391,8 @@ if [[ -x "$BASE_HOME/control-center/scripts/setup-env.sh" ]] && has_tty; then
   read -rp "立即执行阶段二（以 $OWNER 身份）？[y/N] " ans </dev/tty
   if [[ "$ans" =~ ^[yY](es)?$ ]]; then
     log "接力阶段二: su - $OWNER -c setup-env.sh$SETUP_ARGS"
-    exec su - "$OWNER" -c "bash '$BASE_HOME/control-center/scripts/setup-env.sh'$SETUP_ARGS"
+    # script 分配 pty：部分发行版 /dev/tty 为 620 root:tty，dev 无法直接打开，
+    # 会导致阶段二误判"非交互"而跳过全部询问
+    exec script -qec "su - '$OWNER' -c 'bash \"$BASE_HOME/control-center/scripts/setup-env.sh\"$SETUP_ARGS'" /dev/null
   fi
 fi

@@ -105,9 +105,17 @@ EOF
   fi
 
   # 技能目录软链：~/.pi/skills → 控制中心 orchestration/skills（Git 版本化）
+  # pi 可能已自建真实目录 ~/.pi/skills，需先移除再链接（ln: Already exists 修复）
   if [[ -d "$BASE_HOME/control-center/orchestration/skills" ]]; then
-    ln -sfn "$BASE_HOME/control-center/orchestration/skills" "$home/.pi/skills"
-    log "技能目录已链接: $home/.pi/skills → control-center/orchestration/skills"
+    local link="$home/.pi/skills"
+    if [[ -L "$link" ]]; then
+      [[ "$(readlink "$link")" != "$BASE_HOME/control-center/orchestration/skills" ]] \
+        && rm -f "$link"
+    elif [[ -d "$link" ]]; then
+      rm -rf "$link"
+    fi
+    ln -sfn "$BASE_HOME/control-center/orchestration/skills" "$link" \
+      && log "技能目录已链接: $link → control-center/orchestration/skills"
   fi
 
   # root 模式下把配置归属目标用户
