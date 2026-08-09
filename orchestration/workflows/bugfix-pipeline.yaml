@@ -1,0 +1,40 @@
+# 缺陷修复流水线（05 章变体）：跳过设计阶段，审批闸只留 coding/merge
+# 触发：task.md frontmatter type: bug
+pipeline:
+  stages:
+    - id: triage                # 缺陷定位（替代需求分析）
+      model: cheap
+      agent: [reproduce, locate]
+      artifact: 定位报告（复现步骤 + 根因 + 引用）
+      approval: auto            # 缺陷定位无需审批
+      on_reject: retry
+
+    - id: coding                # 修复实现
+      model: coding
+      agent: [branch_worktree, fix, unit_test]
+      artifact: commit + MR diff
+      approval: required        # 闸 1：修复审批
+      on_reject: retry
+
+    - id: testing               # 回归验证（本地 docker）
+      model: cheap
+      env: local_docker
+      agent: [regression, business_test]
+      artifact: 测试报告
+      approval: auto            # 修复类测试自动过闸（报告入档）
+      on_reject: back_to_coding
+
+    - id: merge                 # 待合并（终审）
+      model: heavy
+      artifact: MR + heavy 自评报告
+      quality_gate: [tests_green, heavy_self_review]
+      approval: team_mr_review
+      done_when: merged_by_teammate
+      webhook: merge_event
+
+    - id: deliver
+      approval: auto
+      agent: [cleanup_worktree, archive_report]
+
+authority:                      # 继承 pipeline.yaml 的权柄与暂停语义（同文件引用）
+  inherit: pipeline.yaml

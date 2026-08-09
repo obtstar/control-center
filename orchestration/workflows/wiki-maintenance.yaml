@@ -1,0 +1,22 @@
+# Wiki 维护工作流（无审批闸的后台流）
+# 触发：cron 定时 + control-wiki raw/ 目录变更 webhook
+workflow:
+  name: wiki-maintenance
+  triggers:
+    - cron: "0 3 * * *"         # 每日凌晨
+    - watch: control-wiki/raw/  # 新材料投放即触发
+  steps:
+    - id: distill               # PieKBS 蒸馏：raw → wiki/source-notes
+      run: piekbs serve --kb ~/control-wiki   # watcher 自动蒸馏；此处兜底触发
+      gate: none
+    - id: index                 # 索引重建
+      run: piekbs index --kb ~/control-wiki
+      gate: none
+    - id: synthesize            # 主题充分时生成概念/对比/决策页
+      run: piekbs synthesize --kb ~/control-wiki
+      gate: none
+      condition: source_notes >= 2 per topic
+    - id: commit                # 维护结果提交 Git（可审计）
+      run: "git -C ~/control-wiki add -A && git commit -m 'chore(wiki): maintenance' && git push"
+      gate: none
+  audit: work_log               # 每步记 work_log（operator: agent@wiki-maintenance）
