@@ -4,7 +4,7 @@
 #      代码仓统一 bare+worktree 模型：gitdir 集中 ~/.repos/<key>.git，
 #      常驻工作区 ~/wt/<path>/（任务 worktree 同根，{task-id}-* 命名，7 天回收）
 #   2. control-api 运行时注册表 —— api_type/token_ref/max_worktrees 等字段供调度使用
-# 字段说明见 control-wiki raw/architecture/14-multi-repo
+# 字段说明见 docs/architecture/14-multi-repo
 repos:
   - repo_key: control-center       # 控制面（引导仓，普通克隆 ~/control-center，仅 pull）
     name: 控制中心

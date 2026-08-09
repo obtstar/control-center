@@ -4,7 +4,7 @@
 # 软件安装、仓库同步、pi/PieKBS 等全部在阶段二（setup-env.sh）：
 #   首次以工作用户登录时自动触发（bashrc 钩子，一次性），
 #   或随时手动执行: bash ~/control-center/scripts/setup-env.sh
-# 架构文档见 control-wiki 知识库（raw/architecture/）
+# 架构文档见 control-center/docs/architecture/
 set -euo pipefail
 
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）

@@ -1,7 +1,7 @@
 # control-center
 
 **团队项目中的个人 AI 助手**的控制面仓库：任务编排配置 + 环境拓扑注册表 + 环境脚本（无业务代码）。
-架构文档全文见 **control-wiki** 知识库（`raw/architecture/`，PieKBS 检索）。
+架构文档全文见本仓 `docs/architecture/`（00~18 章）；control-wiki 仅存 piekbs 蒸馏产物。
 
 ## 平台定位
 
@@ -18,11 +18,11 @@
 | 仓库 | 类别 | 用途 |
 |-----|------|------|
 | `control-center` | 引导仓（本仓） | 编排配置 `orchestration/`、注册表 `registry/`、环境脚本 `scripts/` |
-| `control-api` | 平台组件 | 编排后端（任务/状态机/审批/调度），Java Spring Boot |
-| `control-web` | 平台组件 | 工作台前端（任务看板/审批/监视/Diff 预览），React |
+| `control-api` | 平台组件 | 编排后端（任务/状态机/审批/调度），Go（stdlib net/http + SQLite） |
+| `control-web` | 平台组件 | 工作台前端（任务看板/审批/监视/Diff 预览），规划 React 18 + PrimeReact + Vite，当前为占位仓库 |
 | `control-db` | 平台组件 | 数据库 DDL（SQLite 方言，见数据分层） |
 | `control-piekbs` | Agent 基础设施 | PieKBS 知识引擎源码（MCP：`kb_search/kb_page/kb_add`） |
-| `control-wiki` | 知识库 | 平台级 KB：架构文档 raw/wiki/schema，Git 版本化 |
+| `control-wiki` | 知识库 | piekbs 蒸馏产物（wiki/schema/models），Git 版本化 |
 
 业务项目仓（如 `billing-core`）按需登记进 `registry/repos.yaml`，
 项目级 KB 落 `~/wiki/<repo-key>/`（与平台 KB 分离）。
@@ -40,7 +40,7 @@
 ├── control-center/            # 本仓（.git 为指针文件）
 ├── control-api|web|db/        # 平台组件（顶级目录，--separate-git-dir）
 ├── control-piekbs/            # PieKBS 源码
-├── control-wiki/              # 平台级 KB（raw/wiki/schema 进 Git，index 忽略）
+├── control-wiki/              # piekbs KB（wiki/schema 蒸馏产物进 Git，index 忽略）
 ├── wiki/                      # 项目级 KB 根（每业务仓一个，按需）
 ├── wt/                        # 共享工作区根（dev+agent，2770 setgid）
 │   ├── projects/<repo>/dev/   # 业务项目常驻工作区（不回收）
@@ -108,7 +108,7 @@ L1 需求（仅人可写）> L2 概要设计 > L3 详细设计 > L4 代码
 - **任务即文档**：`tasks/TASK-xxx/{task.md, design.md, report.md, log.jsonl}`，
   task.md frontmatter 携带状态，看板索引从文件重建
 - hash 链跨重置续接（新周期首行 prev_hash 指向上期归档尾哈希）
-- 个人本地版用 SQLite；规模化时 JDBC 换 MySQL/PG（配置项，业务不动）
+- 个人本地版用 SQLite；规模化时配置切换 MySQL/PG（业务代码不动）
 
 ## AI 模型路由
 
@@ -123,7 +123,7 @@ settings.json 限定访问 home + protected_paths）。
 
 ## 文档与知识检索
 
-架构文档（00-18 章）全文在 control-wiki `raw/architecture/`：
+架构文档（00-18 章）全文在本仓 `docs/architecture/`：
 00 原则 / 02 分支与 worktree / 05 编排 / 08 数据模型 / 10 部署 / 14 多仓 / 16 权限 / **18 权柄与有据模型**。
 经 PieKBS 蒸馏后可被 pi/Agent 以 MCP 直接检索（`kb_search`/`kb_page`）。
 可选文档生产器 **openwiki**（LangChain）：在业务仓执行 `openwiki --update` 生成文档原稿，

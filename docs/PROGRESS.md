@@ -16,7 +16,7 @@
 | control-web | 平台前端（React/Vite） | 根目录直改 dev | 骨架已迁入 |
 | control-db | 平台 DDL | 根目录直改 dev | 骨架 |
 | control-piekbs | 知识引擎源码 | 根目录 | 在用 |
-| control-wiki | KB 权威文档（18 章） | L1 仅人写 | 在用 |
+| control-wiki | piekbs 蒸馏产物（wiki/schema/index） | 权威文档在本仓 docs/architecture | 在用 |
 | 业务项目（billing-* 等） | 被调度对象 | ~/wt worktree + MR | 待接入 |
 
 **关键约定**：平台仓 `executor_allowed: false`（registry/repos.yaml 已改），

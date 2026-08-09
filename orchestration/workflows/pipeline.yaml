@@ -1,5 +1,5 @@
 # 流水线状态机（05 章）：每阶段一审批闸
-# 权柄与有据约束见 control-wiki raw/architecture/18-authority.md
+# 权柄与有据约束见 docs/architecture/18-authority.md
 # control-api 热加载本文件；状态流转与审批事件记 work_log（hash 链）
 authority:
   grounding: required           # 有据可依：产出必须引用 KB 依据（文档 ID+段落）

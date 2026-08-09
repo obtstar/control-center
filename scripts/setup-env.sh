@@ -3,7 +3,7 @@
 # 触发：首次登录工作用户自动执行（bashrc 钩子，一次性），或随时手动重跑：
 #   bash ~/control-center/scripts/setup-env.sh [--executor] [--skip-*] [--check]
 # 阶段一（init-env.sh）已完成：用户/目录/control-center 克隆
-# 模块见 scripts/lib/*.sh；架构文档见 control-wiki 知识库（raw/architecture/）
+# 模块见 scripts/lib/*.sh；架构文档见 control-center/docs/architecture/
 set -euo pipefail
 
 OWNER="${OWNER_USER:-dev}"   # 工作用户（默认 dev，--owner 自定义）

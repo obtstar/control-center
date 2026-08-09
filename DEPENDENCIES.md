@@ -8,8 +8,8 @@
 | 仓库 | 类别 | 本机路径 | 说明 |
 |-----|------|---------|------|
 | control-center | 引导仓 | `~/control-center` | 编排配置/registry/脚本（本仓） |
-| control-api | 平台组件 | `~/control-api` | 编排后端（Java Spring Boot） |
-| control-web | 平台组件 | `~/control-web` | 工作台前端（React 18 + PrimeReact + Vite） |
+| control-api | 平台组件 | `~/control-api` | 编排后端（Go，stdlib net/http + SQLite） |
+| control-web | 平台组件 | `~/control-web` | 工作台前端（规划 React 18 + PrimeReact + Vite，当前为占位仓库） |
 | control-db | 平台组件 | `~/control-db` | 数据库 DDL（SQLite 方言） |
 | control-piekbs | Agent 基础设施 | `~/control-piekbs` | PieKBS 知识引擎（fork 锁定 pieteams/piekbs，升级走评审） |
 | control-wiki | 知识库 | `~/control-wiki` | 平台级 KB（raw/wiki/schema 版本化，index 忽略） |

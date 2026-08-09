@@ -18,7 +18,7 @@ EOF
   fi
 
   cat > "$deploy/docker-compose.yml" <<EOF
-# 模拟综合测试环境（非生产形态，见 control-wiki raw/architecture/10）
+# 模拟综合测试环境（非生产形态，见 docs/architecture/10）
 services:
   web:
     image: internal-control-web:latest
