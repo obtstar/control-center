@@ -217,7 +217,7 @@ repo=$1 pat=$2 bin=$3 gh=${4:-}
 url=$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" \
       | grep -o "https://[^\"]*$pat" | grep -v 'sha256\|\.sig\|\.txt\|\.pem\|\.deb\|\.rpm' | head -1)
 [[ -n "$url" ]] || { echo "未找到资产: $repo $pat" >&2; exit 1; }
-[[ -n "$gh" ]] && url="$gh/$url"
+[[ -n "$gh" ]] && url="${gh%/}/$url"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 case "$url" in
   *.zip)
