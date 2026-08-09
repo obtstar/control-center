@@ -22,7 +22,7 @@ repos:
     openapi_ref: openapi/openapi.yaml
     default_branch: dev
     max_worktrees: 3
-    executor_allowed: true
+    executor_allowed: false  # 平台仓：根目录直接开发，不走 wt 调度
     disabled: false
 
   - repo_key: control-web
@@ -33,7 +33,7 @@ repos:
     token_ref: env:GIT_TOKEN
     default_branch: dev
     max_worktrees: 2
-    executor_allowed: true
+    executor_allowed: false  # 平台仓：根目录直接开发，不走 wt 调度
     disabled: false
 
   - repo_key: control-db
@@ -44,7 +44,7 @@ repos:
     token_ref: env:GIT_TOKEN
     default_branch: dev
     max_worktrees: 1
-    executor_allowed: true
+    executor_allowed: false  # 平台仓：根目录直接开发，不走 wt 调度
     disabled: false
 
   - repo_key: control-piekbs
