@@ -15,7 +15,8 @@
 
 | 模块 | 说明 | 关键 PrimeReact 组件 |
 |-----|------|---------------------|
-| 多任务看板 | 并行任务状态可视化（阶段/进度/所属仓库） | DataTable / Card / Tag |
+| 多任务看板 | 并行任务状态可视化（阶段/进度/所属仓库），从 task.md frontmatter 派生 | DataTable / Card / Tag |
+| 问题一览 | 发现问题清单（FINDINGS.md 派生视图：状态/影响/去向，见 [18.5](18-authority.md)） | DataTable + Filter |
 | 任务操作 | 创建任务、暂停/回退/批注修正（合并在 GitLab 人工执行） | Dialog / ConfirmDialog / Buttons |
 | Diff 预览 | 代码变更与测试报告查看，跳转 GitLab MR 人工合并 | Editor / Splitter / ScrollPanel |
 | 工作报告 | 日报/周报/任务报告查看（work_report） | DataTable / Editor |
@@ -24,6 +25,6 @@
 
 ## 与后端对接
 
-- REST API 调用后端 Spring Boot（`/api/**`）
+- REST API 调用后端 control-api（Go，`/api/**`），契约以 `control-api/docs/api/openapi.yaml`（OAS 3.1）为准
 - WebSocket/SSE 推送任务状态变更与阶段完成通知
 - 支持 WSL 路径与变更实时预览
