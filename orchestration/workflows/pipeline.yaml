@@ -70,6 +70,6 @@ approval:
   timeout_hours: 24             # 超时未审批 → Web 通知，不自动通过
 
 circuit_breaker:                # 任务级熔断（防失控烧预算）
-  consecutive_failures: 3
-  token_budget_per_task: 500000
-  action: auto_pause_and_notify
+  consecutive_failures: 3       # 已实现：连败计数从 work_log 派生（control-api store.ConsecutiveFailures）
+  # token_budget_per_task: 500000  # 未实现：pi --print 不回传 token 用量，待数据源可用后恢复声明
+  action: auto_pause_and_notify # 已实现 auto pause；notify 当前仅落日志（无通知通道）
