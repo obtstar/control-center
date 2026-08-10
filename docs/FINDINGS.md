@@ -32,6 +32,7 @@
 | FINDING-025 | 2026-08-09 | web 核查（kimi） | 看板只读无刷新入口；路由 * 兜底一律跳 /login 不分登录态；5 处 error 强转绕过生成的 Error schema | control-web BoardPage.tsx / router.tsx:38 / 各页面 | MVP 功能缺口 + 类型弱化 | fixed | control-web bc24067 |
 | FINDING-026 | 2026-08-09 | 后端修复（kimi） | 身份传递依赖可变的 X-User/X-Role 请求头而非 context.Context；当前 withAuth 用 Header.Set 无条件覆盖（auth.go:47-48），伪造无效，但属脆弱设计（未来绕过中间件的路由会静默失守） | control-api/internal/api/auth.go:47-48 | 加固项，非现行漏洞 | open | |
 | FINDING-027 | 2026-08-09 | 熔断实现（kimi） | 连败未达阈值后任务停在 pending，但无自动重跑机制（Resume 只处理 paused），重试依赖人工再触发；另 auto_pause_and_notify 的 notify 无通知通道，当前仅落日志 | control-api/internal/engine/engine.go handleRunFailure | 熔断后恢复路径不完整；通知语义未兑现 | open | |
+| FINDING-028 | 2026-08-09 | 问题一览实现（kimi） | parseFindings 对单元格内含 `\|` 的内容会切分错位（如行内代码中的管道符），当前权威表无此情况未做转义处理 | control-api/internal/api/findings.go | 边缘输入解析错位 | open | |
 
 ## 已修复（留存痕）
 
