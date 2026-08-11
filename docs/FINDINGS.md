@@ -20,7 +20,9 @@
 | FINDING-013 | 2026-08-09 | API 契约核对（kimi） | openapi.yaml 声明 3.1.0 但使用 8 处 nullable: true（3.0 语法，3.1 已删除） | control-api/docs/api/openapi.yaml | 契约文件本身不过 3.1 校验 | fixed | control-api b779a29 |
 | FINDING-014 | 2026-08-09 | API 契约核对（kimi） | 实现超出契约：action 支持 advance/pause/resume 与 POST /tasks，均未登记；契约承诺失真：status 枚举含永不出现的 merged、bearerFormat 标 JWT 实为 opaque token | control-api/docs/api/openapi.yaml vs internal/api | 契约与实现双向漂移，无对账机制 | fixed | control-api b779a29 |
 | FINDING-015 | 2026-08-09 | API 契约核对（kimi） | OAS 契约三份副本（TASK-002 设计 / control-api / control-web），无单一可信源声明 | control-center/tasks/TASK-002/design-openapi.yaml 等 | 副本各自漂移风险 | open | |
-| FINDING-016 | 2026-08-09 | 集成核查（kimi） | control-api ↔ PieKBS 无任何代码级集成（全仓无 MCP/kb_search 调用）；grounding 仅靠 prompt 注入 skill；"有据可依"无代码级强制 | control-api 全仓 grep | 18.3 grounding 无结构性保障 | open | |
+| FINDING-016 | 2026-08-09 | 集成核查（kimi） | control-api ↔ PieKBS 无任何代码级集成（全仓无 MCP/kb_search 调用）；grounding 仅靠 prompt 注入 skill；"有据可依"无代码级强制 | control-api 全仓 grep | 18.3 grounding 无结构性保障 | fixed | control-api 6f31482（窄接口 + REST 实现 + warn/enforce 模式，默认 off 待 KB 链路通） |
+| FINDING-030 | 2026-08-11 | grounding 实现（kimi） | piekbs REST 面（/api/* 含 /api/search）整体无认证，server.api_key 只保护 /mcp | control-piekbs/internal/mcp/server.go:120；internal/webui/server.go:74 | KB 检索面暴露（当前仅 127.0.0.1，风险低） | open | 需在 control-piekbs webui mux 加 withAuth |
+| FINDING-031 | 2026-08-11 | grounding 实现（kimi） | enforce 模式下 Resume 会重走 grounding：KB 仍空时立即再次暂停，任务只能靠切 warn/off 或补 KB 恢复——预期行为但需运维文档说明 | control-api/internal/engine/grounding.go | 运维语义未文档化 | open | |
 | FINDING-017 | 2026-08-09 | 集成核查（kimi） | 知识链路未通：wiki/ 四个产物目录全空；distill 已配置但 LiteLLM 网关不可达（litellm.internal DNS 解析失败），端到端未验证；wiki-maintenance cron 依赖 serve 常驻，未装服务 | control-wiki/wiki/；control-wiki/config.yaml | 蒸馏/检索能力当前不可用 | open | |
 | FINDING-018 | 2026-08-09 | 架构评审（kimi） | control-center/scripts 仍安装 JDK/Maven（Java 时代遗留），与 Go 实现无关 | control-center/scripts/lib/toolchain.sh | 环境冗余，文档已修正但脚本未清理 | open | |
 | FINDING-019 | 2026-08-09 | 架构评审（kimi） | TASK-001 repo_key=billing-core 未登记在 registry/repos.yaml（仅为注释示例） | control-center/tasks/TASK-001/task.md；registry/repos.yaml | 任务指向不存在的仓库登记 | open | |

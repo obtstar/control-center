@@ -3,7 +3,7 @@
 # control-api 热加载本文件；状态流转与审批事件记 work_log（hash 链）
 authority:
   grounding: required           # 有据可依：产出必须引用 KB 依据（文档 ID+段落）
-  on_no_basis: pause            # 检索不到依据 → 暂停并说明缺失项，禁止自行发挥
+  on_no_basis: pause            # 检索不到依据 → 暂停并说明缺失项，禁止自行发挥（已实现：control-api engine grounding，kb.mode=enforce 时生效）
   doc_write: downstream_only    # 顺行可写（L1→L4 当前阶段及以下），逆行禁止：
                                 # 不得修改更高级别文档，人指令也不破例
   on_inconsistency:             # 发现上下级文档不一致（人令 AI 改也不破例）
