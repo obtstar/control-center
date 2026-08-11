@@ -44,6 +44,9 @@
 | FINDING-037 | 2026-08-12 | watcher 修复（kimi） | 遗留边缘语义：防抖为事件重置计时器，持续高频事件会无限推迟 sync；目录 rename 后新路径未必重新纳入（全量 Sync 兜底） | control-api/internal/watcher/watcher.go | 极端场景下索引刷新延迟 | open | |
 | FINDING-038 | 2026-08-12 | 批次修复（kimi） | kb.api_key 与 server/llm api_key 同类落盘风险（有真实消费方故上轮未动）；title 含行首 `---` 仍会撞 ParseFile 分隔符探测（yaml.Marshal 正常不产生，未加固） | control-api/internal/config/config.go；internal/tasks/tasks.go | 密钥不落盘清单不全；极端 frontmatter 边界 | open | |
 | FINDING-039 | 2026-08-12 | 契约测试层（kimi） | GET /api/tasks 实际响应含 path 字段（store.TaskRow），契约 Task schema 未声明；校验器按设计放行多余字段故不红。补契约或去字段属文档决策 | control-api/docs/api/openapi.yaml vs internal/store/domain.go | 契约描述不完整（不冲突） | open | |
+| FINDING-040 | 2026-08-12 | KB/Scalar 端点实现（kimi） | /api/openapi.yaml 与 findings 解析端点硬编码假设契约/FINDINGS 位于 paths.home 下的 control-api/control-center 固定相对路径，仓位置变更即 500 | control-api/internal/api/server.go | 部署形态耦合，搬仓即坏 | open | |
+| FINDING-041 | 2026-08-12 | piekbs 部署（kimi） | piekbs serve 在 DISPLAY/WAYLAND_DISPLAY 已设但托盘实际不可用的环境（vscode-server/远程桌面）走 tray.Run 静默返回，进程 exit 0 无任何日志；服务器部署须 env -u DISPLAY -u WAYLAND_DISPLAY 强制 headless | control-piekbs/cmd/piekbs/main.go:458-471 runServe | serve 假启动，排查成本高（本次连死 3 次才定位） | open |  fork 内小修：tray 返回时打日志并视情回退 headless |
+| FINDING-042 | 2026-08-12 | piekbs 部署（kimi） | ~/.local/bin/piekbs 部署二进制（07-20）落后于仓源码（07-31 90a9438），无 rebuild/同步机制，serve 行为与源码脱节 | ~/.local/bin/piekbs vs control-piekbs | 部署漂移，已手工重编译恢复 | open | 需 setup-env 或脚本固化"源码→安装"路径 |
 
 ## 已修复（留存痕）
 
