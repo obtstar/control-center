@@ -24,6 +24,7 @@
 | FINDING-030 | 2026-08-11 | grounding 实现（kimi） | piekbs REST 面（/api/* 含 /api/search）整体无认证，server.api_key 只保护 /mcp | control-piekbs/internal/mcp/server.go:120；internal/webui/server.go:74 | KB 检索面暴露（当前仅 127.0.0.1，风险低） | open | 需在 control-piekbs webui mux 加 withAuth |
 | FINDING-031 | 2026-08-11 | grounding 实现（kimi） | enforce 模式下 Resume 会重走 grounding：KB 仍空时立即再次暂停，任务只能靠切 warn/off 或补 KB 恢复——预期行为但需运维文档说明 | control-api/internal/engine/grounding.go | 运维语义未文档化 | open | |
 | FINDING-032 | 2026-08-11 | hash 链修复（kimi） | tasks.go:62 与 engine.go:67 调用 store.Log 后丢弃返回值；Log 事务化后会产生真实错误（如排队超时），这些错误被静默丢弃 | control-api/internal/api/tasks.go:62；internal/engine/engine.go:67 | 日志写入失败不可见 | open | |
+| FINDING-033 | 2026-08-11 | 外部评审走查（2026-08 报告） | 05/08/09/13/14/15/17 章及 architecture/README 仍含 Java Spring Boot/MySQL/Milvus/RAG 失真（01/03 章已修）；已用状态标头（设计中）隔离，逐章修订待做 | control-center/docs/architecture/ | 权柄文档存量腐化 | open | 逐章修订，随批次推进 |
 | FINDING-017 | 2026-08-09 | 集成核查（kimi） | 知识链路未通：wiki/ 四个产物目录全空；distill 已配置但 LiteLLM 网关不可达（litellm.internal DNS 解析失败），端到端未验证；wiki-maintenance cron 依赖 serve 常驻，未装服务 | control-wiki/wiki/；control-wiki/config.yaml | 蒸馏/检索能力当前不可用 | open | |
 | FINDING-018 | 2026-08-09 | 架构评审（kimi） | control-center/scripts 仍安装 JDK/Maven（Java 时代遗留），与 Go 实现无关 | control-center/scripts/lib/toolchain.sh | 环境冗余，文档已修正但脚本未清理 | open | |
 | FINDING-019 | 2026-08-09 | 架构评审（kimi） | TASK-001 repo_key=billing-core 未登记在 registry/repos.yaml（仅为注释示例） | control-center/tasks/TASK-001/task.md；registry/repos.yaml | 任务指向不存在的仓库登记 | open | |
