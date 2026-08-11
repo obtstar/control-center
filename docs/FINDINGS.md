@@ -11,25 +11,17 @@
 | FINDING-004 | 2026-08-09 | 架构评审（kimi） | 常量时间比较为恒真死代码：subtle.ConstantTimeCompare([]byte(token), []byte(token)) 自己比自己 | control-api/internal/authn/authn.go:97 | 安全剧场，误导审计 | fixed | control-api b779a29 |
 | FINDING-005 | 2026-08-09 | 架构评审（kimi） | work_log hash 链：查 prev 与 INSERT 不在事务中，并发写（engine goroutine）可分叉；Scan 错误被吞；无重算校验工具 | control-api/internal/store/domain.go:68-78 | 审计链完整性不可信 | fixed | control-api c532d5a（事务化 + verify-log；存量链校验通过 19 条） |
 | FINDING-006 | 2026-08-09 | 架构评审（kimi） | watcher 非递归：只监听 tasks/ 根目录，TASK-xxx/ 子目录 task.md 修改不产生事件，增量同步近乎失效 | control-api/internal/watcher/watcher.go:39 | 人工改 task.md 时看板索引不刷新 | fixed | control-api a8bf5f4 |
-| FINDING-037 | 2026-08-12 | watcher 修复（kimi） | 遗留边缘语义：防抖为事件重置计时器，持续高频事件会无限推迟 sync；目录 rename 后新路径未必重新纳入（全量 Sync 兜底） | control-api/internal/watcher/watcher.go | 极端场景下索引刷新延迟 | open | |
 | FINDING-007 | 2026-08-09 | 架构评审（kimi） | detailActor 硬编码返回 "agent"，人执行的 pause/resume 在 work_log.operator 也记为 agent | control-api/internal/engine/engine.go:165 | 审计语义失真，违反"记录审批人" | fixed | control-api 13382b2 |
-| FINDING-034 | 2026-08-11 | actor 归因修复（kimi） | createTask 创建任务时 work_log operator 硬编码 "human" 而非 X-User 真实用户名 | control-api/internal/api/tasks.go:62 | 归因失真残留 | open | |
-| FINDING-035 | 2026-08-11 | pipeline 校验（kimi） | check 子命令不加载 pipeline，merge 权力校验只在 serve 启动路径生效 | control-api/cmd/control-api/main.go | 自检覆盖面缺口 | open | |
-| FINDING-036 | 2026-08-11 | hook 实现（kimi） | check-conventions hook 为整仓扫描策略：他人未提交的违规（>60 行函数等）会拦截无关 commit | control-center/scripts/check-conventions.sh | 误拦截风险（设计取舍，可改 staged-only） | open | |
-| FINDING-008 | 2026-08-09 | 架构评审（kimi） | pipeline.yaml 热加载未实现：仅在启动时加载一次 | control-api/internal/api/server.go:35 | 编排修改需重启，与 README 声明不符 | open | |
-| FINDING-009 | 2026-08-09 | 架构评审（kimi） | nextTaskID 读目录 max+1 有竞态；title/body 直接 fmt.Sprintf 进 frontmatter，含冒号/换行产生非法 YAML | control-api/internal/api/tasks.go:133-148, 44-57 | 并发撞号；任务文件可被标题注入破坏 | open | |
-| FINDING-010 | 2026-08-09 | 架构评审（kimi） | config.Save 可能将 env 注入的 api_key 序列化落盘；Server.APIKey/LLM.APIKey 加载后无使用点（死配置） | control-api/internal/config/config.go:26, 143-148 | 密钥不落盘原则存在顺序脆弱性 | open | |
+| FINDING-008 | 2026-08-09 | 架构评审（kimi） | pipeline.yaml 热加载未实现：仅在启动时加载一次 | control-api/internal/api/server.go:35 | 编排修改需重启，与 README 声明不符 | fixed | control-api fd923f5 |
+| FINDING-009 | 2026-08-09 | 架构评审（kimi） | nextTaskID 读目录 max+1 有竞态；title/body 直接 fmt.Sprintf 进 frontmatter，含冒号/换行产生非法 YAML | control-api/internal/api/tasks.go:133-148, 44-57 | 并发撞号；任务文件可被标题注入破坏 | fixed | control-api fd923f5 |
+| FINDING-010 | 2026-08-09 | 架构评审（kimi） | config.Save 可能将 env 注入的 api_key 序列化落盘；Server.APIKey/LLM.APIKey 加载后无使用点（死配置） | control-api/internal/config/config.go:26, 143-148 | 密钥不落盘原则存在顺序脆弱性 | fixed | control-api fd923f5 |
 | FINDING-011 | 2026-08-09 | 架构评审（kimi） | Reject 不校验当前状态，仅靠 store.Decide 的 decision IS NULL 兜底 | control-api/internal/engine/engine.go:120-131 | 非法流转校验缺一角 | fixed | control-api f4571e9 |
 | FINDING-012 | 2026-08-09 | 架构评审（kimi） | control-api 无 DEPENDENCIES.md（CONVENTIONS.md 要求登记）；engine 包零测试（违反"状态机迁移必须覆盖非法流转"） | control-api/CONVENTIONS.md:13, 39 | 规约自相矛盾地未被遵守 | fixed | control-api f4571e9 |
 | FINDING-013 | 2026-08-09 | API 契约核对（kimi） | openapi.yaml 声明 3.1.0 但使用 8 处 nullable: true（3.0 语法，3.1 已删除） | control-api/docs/api/openapi.yaml | 契约文件本身不过 3.1 校验 | fixed | control-api b779a29 |
 | FINDING-014 | 2026-08-09 | API 契约核对（kimi） | 实现超出契约：action 支持 advance/pause/resume 与 POST /tasks，均未登记；契约承诺失真：status 枚举含永不出现的 merged、bearerFormat 标 JWT 实为 opaque token | control-api/docs/api/openapi.yaml vs internal/api | 契约与实现双向漂移，无对账机制 | fixed | control-api b779a29 |
 | FINDING-015 | 2026-08-09 | API 契约核对（kimi） | OAS 契约三份副本（TASK-002 设计 / control-api / control-web），无单一可信源声明 | control-center/tasks/TASK-002/design-openapi.yaml 等 | 副本各自漂移风险 | open | |
 | FINDING-016 | 2026-08-09 | 集成核查（kimi） | control-api ↔ PieKBS 无任何代码级集成（全仓无 MCP/kb_search 调用）；grounding 仅靠 prompt 注入 skill；"有据可依"无代码级强制 | control-api 全仓 grep | 18.3 grounding 无结构性保障 | fixed | control-api 6f31482（窄接口 + REST 实现 + warn/enforce 模式，默认 off 待 KB 链路通） |
-| FINDING-030 | 2026-08-11 | grounding 实现（kimi） | piekbs REST 面（/api/* 含 /api/search）整体无认证，server.api_key 只保护 /mcp | control-piekbs/internal/mcp/server.go:120；internal/webui/server.go:74 | KB 检索面暴露（当前仅 127.0.0.1，风险低） | open | 需在 control-piekbs webui mux 加 withAuth |
-| FINDING-031 | 2026-08-11 | grounding 实现（kimi） | enforce 模式下 Resume 会重走 grounding：KB 仍空时立即再次暂停，任务只能靠切 warn/off 或补 KB 恢复——预期行为但需运维文档说明 | control-api/internal/engine/grounding.go | 运维语义未文档化 | open | |
-| FINDING-032 | 2026-08-11 | hash 链修复（kimi） | tasks.go:62 与 engine.go:67 调用 store.Log 后丢弃返回值；Log 事务化后会产生真实错误（如排队超时），这些错误被静默丢弃 | control-api/internal/api/tasks.go:62；internal/engine/engine.go:67 | 日志写入失败不可见 | open | |
-| FINDING-033 | 2026-08-11 | 外部评审走查（2026-08 报告） | 05/08/09/13/14/15/17 章及 architecture/README 仍含 Java Spring Boot/MySQL/Milvus/RAG 失真（01/03 章已修）；已用状态标头（设计中）隔离，逐章修订待做 | control-center/docs/architecture/ | 权柄文档存量腐化 | open | 逐章修订，随批次推进 |
-| FINDING-017 | 2026-08-09 | 集成核查（kimi） | 知识链路未通：wiki/ 四个产物目录全空；distill 已配置但 LiteLLM 网关不可达（litellm.internal DNS 解析失败），端到端未验证；wiki-maintenance cron 依赖 serve 常驻，未装服务 | control-wiki/wiki/；control-wiki/config.yaml | 蒸馏/检索能力当前不可用 | open | |
+| FINDING-017 | 2026-08-09 | 集成核查（kimi） | 知识链路未通：wiki/ 四个产物目录全空；distill 已配置但 LiteLLM 网关不可达（litellm.internal DNS 解析失败），端到端未验证；wiki-maintenance cron 依赖 serve 常驻，未装服务 | control-wiki/wiki/；control-wiki/config.yaml | 蒸馏/检索能力当前不可用 | open | 外部依赖：网关恢复后验证 |
 | FINDING-018 | 2026-08-09 | 架构评审（kimi） | control-center/scripts 仍安装 JDK/Maven（Java 时代遗留），与 Go 实现无关 | control-center/scripts/lib/toolchain.sh | 环境冗余，文档已修正但脚本未清理 | open | |
 | FINDING-019 | 2026-08-09 | 架构评审（kimi） | TASK-001 repo_key=billing-core 未登记在 registry/repos.yaml（仅为注释示例） | control-center/tasks/TASK-001/task.md；registry/repos.yaml | 任务指向不存在的仓库登记 | open | |
 | FINDING-020 | 2026-08-09 | 架构评审（kimi） | sessions.expires_at 声明 DATETIME 实存 Unix 秒整数；server.go:46 / agent.go:53 吞 os.MkdirAll/WriteFile 错误 | control-api/internal/store/store.go:81, domain.go:188 | 类型不一致隐患；错误被吞难排查 | open | |
@@ -42,6 +34,15 @@
 | FINDING-027 | 2026-08-09 | 熔断实现（kimi） | 连败未达阈值后任务停在 pending，但无自动重跑机制（Resume 只处理 paused），重试依赖人工再触发；另 auto_pause_and_notify 的 notify 无通知通道，当前仅落日志 | control-api/internal/engine/engine.go handleRunFailure | 熔断后恢复路径不完整；通知语义未兑现 | open | |
 | FINDING-028 | 2026-08-09 | 问题一览实现（kimi） | parseFindings 对单元格内含 `\|` 的内容会切分错位（如行内代码中的管道符），当前权威表无此情况未做转义处理 | control-api/internal/api/findings.go | 边缘输入解析错位 | open | |
 | FINDING-029 | 2026-08-09 | merge 实现（kimi） | merged 为瞬态（同请求内推进 deliver），task_index/看板几乎读不到 merged 状态，用户无法感知"已合并待交付" | control-api/internal/engine/engine.go MarkMerged | 状态可视性缺口（非功能缺陷） | open | |
+| FINDING-030 | 2026-08-11 | grounding 实现（kimi） | piekbs REST 面（/api/* 含 /api/search）整体无认证，server.api_key 只保护 /mcp | control-piekbs/internal/mcp/server.go:120；internal/webui/server.go:74 | KB 检索面暴露（当前仅 127.0.0.1，风险低） | open | 需在 control-piekbs webui mux 加 withAuth |
+| FINDING-031 | 2026-08-11 | grounding 实现（kimi） | enforce 模式下 Resume 会重走 grounding：KB 仍空时立即再次暂停，任务只能靠切 warn/off 或补 KB 恢复——预期行为但需运维文档说明 | control-api/internal/engine/grounding.go | 运维语义未文档化 | open | |
+| FINDING-032 | 2026-08-11 | hash 链修复（kimi） | tasks.go:62 与 engine.go:67 调用 store.Log 后丢弃返回值；Log 事务化后会产生真实错误（如排队超时），这些错误被静默丢弃 | control-api/internal/api/tasks.go:62；internal/engine/engine.go:67 | 日志写入失败不可见 | fixed | control-api fd923f5 |
+| FINDING-033 | 2026-08-11 | 外部评审走查（2026-08 报告） | 05/08/09/13/14/15/17 章及 architecture/README 仍含 Java Spring Boot/MySQL/Milvus/RAG 失真（01/03 章已修）；已用状态标头（设计中）隔离，逐章修订待做 | control-center/docs/architecture/ | 权柄文档存量腐化 | open | 逐章修订，随批次推进 |
+| FINDING-034 | 2026-08-11 | actor 归因修复（kimi） | createTask 创建任务时 work_log operator 硬编码 "human" 而非 X-User 真实用户名 | control-api/internal/api/tasks.go:62 | 归因失真残留 | fixed | control-api fd923f5 |
+| FINDING-035 | 2026-08-11 | pipeline 校验（kimi） | check 子命令不加载 pipeline，merge 权力校验只在 serve 启动路径生效 | control-api/cmd/control-api/main.go | 自检覆盖面缺口 | open | |
+| FINDING-036 | 2026-08-11 | hook 实现（kimi） | check-conventions hook 为整仓扫描策略：他人未提交的违规（>60 行函数等）会拦截无关 commit | control-center/scripts/check-conventions.sh | 误拦截风险（设计取舍，可改 staged-only） | open | |
+| FINDING-037 | 2026-08-12 | watcher 修复（kimi） | 遗留边缘语义：防抖为事件重置计时器，持续高频事件会无限推迟 sync；目录 rename 后新路径未必重新纳入（全量 Sync 兜底） | control-api/internal/watcher/watcher.go | 极端场景下索引刷新延迟 | open | |
+| FINDING-038 | 2026-08-12 | 批次修复（kimi） | kb.api_key 与 server/llm api_key 同类落盘风险（有真实消费方故上轮未动）；title 含行首 `---` 仍会撞 ParseFile 分隔符探测（yaml.Marshal 正常不产生，未加固） | control-api/internal/config/config.go；internal/tasks/tasks.go | 密钥不落盘清单不全；极端 frontmatter 边界 | open | |
 
 ## 已修复（留存痕）
 
