@@ -7,7 +7,7 @@
 |----|------|------|------|------|------|------|------|
 | FINDING-001 | 2026-08-09 | 架构评审（kimi） | `advance` 动作无任何角色/状态校验，任意登录用户可推过 approval required 阶段，且不在 OAS 契约内 | control-api/internal/api/tasks.go:102-115 | 审批闸整体可绕过，"逐步审批"前提架空 | fixed | control-api b779a29 |
 | FINDING-002 | 2026-08-09 | 架构评审（kimi） | 熔断（连败3次/token阈值）声明未实现：pipeline.yaml 的 circuit_breaker 等字段被 yaml.Unmarshal 静默丢弃；实际语义为单次失败即暂停 | control-center/orchestration/workflows/pipeline.yaml:72-75；control-api/internal/pipeline/pipeline.go:13-18；engine.go:37-42 | 声明与实现不符且无报错，最坏的一种未实现 | fixed | control-api f4571e9 + control-center e3fb15f（token 预算暂无数据源，声明已标注） |
-| FINDING-003 | 2026-08-09 | 架构评审（kimi） | merge 阶段断头路：team_mr_review 不触发审批等待（NeedsApproval 只认 required），无 webhook 端点，merged 状态全代码无赋值点 | control-api/internal/pipeline/pipeline.go:84-88；internal/api/server.go:56-63 | 任务到 merge 只能人工 advance，终审机制不存在 | open | |
+| FINDING-003 | 2026-08-09 | 架构评审（kimi） | merge 阶段断头路：team_mr_review 不触发审批等待（NeedsApproval 只认 required），无 webhook 端点，merged 状态全代码无赋值点 | control-api/internal/pipeline/pipeline.go:84-88；internal/api/server.go:56-63 | 任务到 merge 只能人工 advance，终审机制不存在 | fixed | control-api 8eda714 + control-web b89d509 |
 | FINDING-004 | 2026-08-09 | 架构评审（kimi） | 常量时间比较为恒真死代码：subtle.ConstantTimeCompare([]byte(token), []byte(token)) 自己比自己 | control-api/internal/authn/authn.go:97 | 安全剧场，误导审计 | fixed | control-api b779a29 |
 | FINDING-005 | 2026-08-09 | 架构评审（kimi） | work_log hash 链：查 prev 与 INSERT 不在事务中，并发写（engine goroutine）可分叉；Scan 错误被吞；无重算校验工具 | control-api/internal/store/domain.go:68-78 | 审计链完整性不可信 | open | |
 | FINDING-006 | 2026-08-09 | 架构评审（kimi） | watcher 非递归：只监听 tasks/ 根目录，TASK-xxx/ 子目录 task.md 修改不产生事件，增量同步近乎失效 | control-api/internal/watcher/watcher.go:39 | 人工改 task.md 时看板索引不刷新 | open | |
@@ -33,6 +33,7 @@
 | FINDING-026 | 2026-08-09 | 后端修复（kimi） | 身份传递依赖可变的 X-User/X-Role 请求头而非 context.Context；当前 withAuth 用 Header.Set 无条件覆盖（auth.go:47-48），伪造无效，但属脆弱设计（未来绕过中间件的路由会静默失守） | control-api/internal/api/auth.go:47-48 | 加固项，非现行漏洞 | open | |
 | FINDING-027 | 2026-08-09 | 熔断实现（kimi） | 连败未达阈值后任务停在 pending，但无自动重跑机制（Resume 只处理 paused），重试依赖人工再触发；另 auto_pause_and_notify 的 notify 无通知通道，当前仅落日志 | control-api/internal/engine/engine.go handleRunFailure | 熔断后恢复路径不完整；通知语义未兑现 | open | |
 | FINDING-028 | 2026-08-09 | 问题一览实现（kimi） | parseFindings 对单元格内含 `\|` 的内容会切分错位（如行内代码中的管道符），当前权威表无此情况未做转义处理 | control-api/internal/api/findings.go | 边缘输入解析错位 | open | |
+| FINDING-029 | 2026-08-09 | merge 实现（kimi） | merged 为瞬态（同请求内推进 deliver），task_index/看板几乎读不到 merged 状态，用户无法感知"已合并待交付" | control-api/internal/engine/engine.go MarkMerged | 状态可视性缺口（非功能缺陷） | open | |
 
 ## 已修复（留存痕）
 

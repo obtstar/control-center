@@ -57,7 +57,7 @@ pipeline:
       quality_gate: [tests_green, heavy_self_review]   # 进入本阶段的前置自动关
       approval: team_mr_review  # 终审：团队员工评审合并入 dev/release，平台无合并按钮
       done_when: merged_by_teammate   # 仅 push/建 MR 不算完成，合并事件回传才算
-      webhook: merge_event      # 合并事件回传 → deliver
+      webhook: merge_event      # 已实现：POST /api/webhooks/merge-event（X-Webhook-Token 独立密钥，CONTROL_WEBHOOK_SECRET 注入）
 
     - id: deliver               # 交付
       approval: auto
