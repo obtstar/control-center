@@ -11,8 +11,12 @@
 #   §1   go.mod require ≤12（不含 // indirect 间接依赖）
 #   §2   禁 util/common/helper 垃圾桶包（含 .go 文件的同名目录）
 #   §3   internal/ 包禁 panic/os.Exit/log.Fatal（main 包除外）
+#   §3   Go 仓：gofmt -l 无输出、go vet ./... 全绿（无 go 命令降级 WARN）
+#   §3   Web 仓：存在 eslint.config.* 时 pnpm lint 零 error（warning 不拦截；
+#        无 pnpm 或 node_modules 未安装时降级 WARN）
 #
 # 非 Go 仓（无 go.mod）只跑 §1 文件行数通用项，Go 项打印 SKIP。
+# eslint 项与 Go 项独立：任何仓存在 eslint.config.* 都会执行。
 # 每条 FAIL 均携带「依据 + 处置」；退出码：任一 FAIL → 1，全过 → 0。
 # 挂接：install-hooks.sh 将本脚本装为目标仓 pre-commit hook。
 set -uo pipefail
@@ -39,10 +43,15 @@ find_code_files() {
 }
 
 # §1 单文件 ≤300 行（通用项，Go/非 Go 仓都跑）
+# 机生成文件（头 5 行含 auto-generated / Code generated / DO NOT EDIT）豁免：
+# 其规模由生成源（如 openapi.yaml）决定，不适用手写红线
 check_file_lines() {
   local max=300 count=0 f n fix='拆分为多个文件'
   [ -f "$REPO/go.mod" ] && fix='按 §2 拆分为同包多文件（store.go → store.go + store_task.go），不新建包'
   while IFS= read -r f; do
+    if head -5 "$f" | grep -qiE 'auto-generated|code generated|do not (edit|make direct changes)'; then
+      continue
+    fi
     count=$((count + 1))
     n=$(wc -l < "$f")
     if [ "$n" -gt "$max" ]; then
@@ -135,6 +144,68 @@ check_internal_banned() {
   fi
 }
 
+# §3 gofmt -l 无输出
+check_gofmt() {
+  if ! command -v gofmt >/dev/null 2>&1; then
+    warn '§3 gofmt：未找到 gofmt 命令，降级跳过（不 FAIL）；安装 Go 后本项恢复强制'
+    return
+  fi
+  local out
+  out=$(cd "$REPO" && gofmt -l . 2>/dev/null | grep -v '^vendor/' || true)
+  if [ -n "$out" ]; then
+    fail '存在未 gofmt 格式化的文件（见下）' \
+      'CONVENTIONS.md §3 代码风格——gofmt + go vet 全绿' \
+      'gofmt -w 修正后重新提交'
+    printf '%s\n' "$out" | sed 's/^/    /'
+  else
+    pass '§3 gofmt 无格式偏差'
+  fi
+}
+
+# §3 go vet ./... 全绿
+check_govet() {
+  if ! command -v go >/dev/null 2>&1; then
+    warn '§3 go vet：未找到 go 命令，降级跳过（不 FAIL）；安装 Go 后本项恢复强制'
+    return
+  fi
+  local out rc
+  out=$(cd "$REPO" && go vet ./... 2>&1); rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail 'go vet 报告问题（见下）' \
+      'CONVENTIONS.md §3 代码风格——gofmt + go vet 全绿' \
+      '按 vet 提示修正后重新提交'
+    printf '%s\n' "$out" | sed 's/^/    /'
+  else
+    pass '§3 go vet 全绿'
+  fi
+}
+
+# §3 Web：存在 eslint.config.* 时 pnpm lint 零 error
+check_eslint() {
+  local cfg=''
+  for f in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts; do
+    [ -f "$REPO/$f" ] && cfg="$f" && break
+  done
+  if [ -z "$cfg" ]; then
+    skip '无 eslint.config.*：跳过 eslint 项'
+    return
+  fi
+  if ! command -v pnpm >/dev/null 2>&1 || [ ! -d "$REPO/node_modules" ]; then
+    warn '§3 eslint：pnpm 或 node_modules 不可用，降级跳过（不 FAIL）；安装依赖后本项恢复强制'
+    return
+  fi
+  local out rc
+  out=$(cd "$REPO" && pnpm lint 2>&1); rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail 'eslint 报告 error（见下）' \
+      'CONVENTIONS.md §3 代码风格——静态检查全绿方可提交' \
+      '按提示修正，或 pnpm lint:fix 自动修复后重新提交'
+    printf '%s\n' "$out" | grep -E 'error|problem' | sed 's/^/    /'
+  else
+    pass '§3 eslint 零 error'
+  fi
+}
+
 echo "== check-conventions: $REPO =="
 check_file_lines
 if [ -f "$REPO/go.mod" ]; then
@@ -143,9 +214,12 @@ if [ -f "$REPO/go.mod" ]; then
   check_require_count
   check_blacklist_pkgs
   check_internal_banned
+  check_gofmt
+  check_govet
 else
-  skip '无 go.mod：非 Go 仓，跳过 Go 项（函数行数/包文件数/require/黑名单包/internal 禁词）'
+  skip '无 go.mod：非 Go 仓，跳过 Go 项（函数行数/包文件数/require/黑名单包/internal 禁词/gofmt/vet）'
 fi
+check_eslint
 echo
 if [ "$FAILS" -gt 0 ]; then
   printf '结果: FAIL（%d 处违规）\n' "$FAILS"
