@@ -1,3 +1,8 @@
+---
+status: 设计中
+last_verified: 2026-08-11
+---
+
 # 14 多仓库管理设计
 
 平台以**一个独立控制中心仓库 + N 个代码仓库**为形态（代码仓库含平台实现 `control-api/control-web/control-db` 与业务代码仓库）。

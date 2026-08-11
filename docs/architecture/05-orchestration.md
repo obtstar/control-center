@@ -1,3 +1,8 @@
+---
+status: 设计中
+last_verified: 2026-08-11
+---
+
 # 05 Agent 编排层（后端服务）
 
 编排层由**平台后端代码仓库 `control-api`（Java Spring Boot）**承担，负责任务管理、流水线状态机、多任务并发调度与自我升级，是全系统的调度中枢。数据落地 MySQL（DDL/DML 在 `control-db`）。编排配置与注册表版本化于控制中心仓库 `orchestration/` 与 `registry/`。

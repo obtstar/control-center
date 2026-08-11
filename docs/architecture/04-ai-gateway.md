@@ -1,3 +1,8 @@
+---
+status: 设计中
+last_verified: 2026-08-11
+---
+
 # 04 AI 网关层（L3）：企业内 LiteLLM 代理
 
 ## 现状

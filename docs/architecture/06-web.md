@@ -1,3 +1,8 @@
+---
+status: 设计中
+last_verified: 2026-08-11
+---
+
 # 06 Web 管理端（React + PrimeReact + Vite）
 
 用户入口：多任务看板、任务干预、Diff 预览（合并跳转 GitLab 人工执行）与日志检索。由**平台前端代码仓库 `control-web`** 构建，React + PrimeReact + Vite，Nginx 提供内网静态托管。单用户单工作台（见 [17 客户端/服务端设计](17-client-server-design.md)）。

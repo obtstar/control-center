@@ -1,3 +1,8 @@
+---
+status: 已实现
+last_verified: 2026-08-11
+---
+
 # 11 安全与合规
 
 > Linux 用户/组权限、Agent 隔离、出站白名单见 [16 Linux 权限管理](16-linux-permissions.md)。

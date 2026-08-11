@@ -1,3 +1,8 @@
+---
+status: 设计中
+last_verified: 2026-08-11
+---
+
 # 15 服务器模块设计（control-api）
 
 ## 15.1 概述
