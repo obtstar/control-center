@@ -10,7 +10,8 @@
 | FINDING-003 | 2026-08-09 | 架构评审（kimi） | merge 阶段断头路：team_mr_review 不触发审批等待（NeedsApproval 只认 required），无 webhook 端点，merged 状态全代码无赋值点 | control-api/internal/pipeline/pipeline.go:84-88；internal/api/server.go:56-63 | 任务到 merge 只能人工 advance，终审机制不存在 | fixed | control-api 8eda714 + control-web b89d509 |
 | FINDING-004 | 2026-08-09 | 架构评审（kimi） | 常量时间比较为恒真死代码：subtle.ConstantTimeCompare([]byte(token), []byte(token)) 自己比自己 | control-api/internal/authn/authn.go:97 | 安全剧场，误导审计 | fixed | control-api b779a29 |
 | FINDING-005 | 2026-08-09 | 架构评审（kimi） | work_log hash 链：查 prev 与 INSERT 不在事务中，并发写（engine goroutine）可分叉；Scan 错误被吞；无重算校验工具 | control-api/internal/store/domain.go:68-78 | 审计链完整性不可信 | fixed | control-api c532d5a（事务化 + verify-log；存量链校验通过 19 条） |
-| FINDING-006 | 2026-08-09 | 架构评审（kimi） | watcher 非递归：只监听 tasks/ 根目录，TASK-xxx/ 子目录 task.md 修改不产生事件，增量同步近乎失效 | control-api/internal/watcher/watcher.go:39 | 人工改 task.md 时看板索引不刷新 | open | |
+| FINDING-006 | 2026-08-09 | 架构评审（kimi） | watcher 非递归：只监听 tasks/ 根目录，TASK-xxx/ 子目录 task.md 修改不产生事件，增量同步近乎失效 | control-api/internal/watcher/watcher.go:39 | 人工改 task.md 时看板索引不刷新 | fixed | control-api a8bf5f4 |
+| FINDING-037 | 2026-08-12 | watcher 修复（kimi） | 遗留边缘语义：防抖为事件重置计时器，持续高频事件会无限推迟 sync；目录 rename 后新路径未必重新纳入（全量 Sync 兜底） | control-api/internal/watcher/watcher.go | 极端场景下索引刷新延迟 | open | |
 | FINDING-007 | 2026-08-09 | 架构评审（kimi） | detailActor 硬编码返回 "agent"，人执行的 pause/resume 在 work_log.operator 也记为 agent | control-api/internal/engine/engine.go:165 | 审计语义失真，违反"记录审批人" | fixed | control-api 13382b2 |
 | FINDING-034 | 2026-08-11 | actor 归因修复（kimi） | createTask 创建任务时 work_log operator 硬编码 "human" 而非 X-User 真实用户名 | control-api/internal/api/tasks.go:62 | 归因失真残留 | open | |
 | FINDING-035 | 2026-08-11 | pipeline 校验（kimi） | check 子命令不加载 pipeline，merge 权力校验只在 serve 启动路径生效 | control-api/cmd/control-api/main.go | 自检覆盖面缺口 | open | |
