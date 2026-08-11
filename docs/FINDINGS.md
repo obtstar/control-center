@@ -43,6 +43,7 @@
 | FINDING-036 | 2026-08-11 | hook 实现（kimi） | check-conventions hook 为整仓扫描策略：他人未提交的违规（>60 行函数等）会拦截无关 commit | control-center/scripts/check-conventions.sh | 误拦截风险（设计取舍，可改 staged-only） | open | |
 | FINDING-037 | 2026-08-12 | watcher 修复（kimi） | 遗留边缘语义：防抖为事件重置计时器，持续高频事件会无限推迟 sync；目录 rename 后新路径未必重新纳入（全量 Sync 兜底） | control-api/internal/watcher/watcher.go | 极端场景下索引刷新延迟 | open | |
 | FINDING-038 | 2026-08-12 | 批次修复（kimi） | kb.api_key 与 server/llm api_key 同类落盘风险（有真实消费方故上轮未动）；title 含行首 `---` 仍会撞 ParseFile 分隔符探测（yaml.Marshal 正常不产生，未加固） | control-api/internal/config/config.go；internal/tasks/tasks.go | 密钥不落盘清单不全；极端 frontmatter 边界 | open | |
+| FINDING-039 | 2026-08-12 | 契约测试层（kimi） | GET /api/tasks 实际响应含 path 字段（store.TaskRow），契约 Task schema 未声明；校验器按设计放行多余字段故不红。补契约或去字段属文档决策 | control-api/docs/api/openapi.yaml vs internal/store/domain.go | 契约描述不完整（不冲突） | open | |
 
 ## 已修复（留存痕）
 
