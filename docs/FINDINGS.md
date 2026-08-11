@@ -11,7 +11,10 @@
 | FINDING-004 | 2026-08-09 | 架构评审（kimi） | 常量时间比较为恒真死代码：subtle.ConstantTimeCompare([]byte(token), []byte(token)) 自己比自己 | control-api/internal/authn/authn.go:97 | 安全剧场，误导审计 | fixed | control-api b779a29 |
 | FINDING-005 | 2026-08-09 | 架构评审（kimi） | work_log hash 链：查 prev 与 INSERT 不在事务中，并发写（engine goroutine）可分叉；Scan 错误被吞；无重算校验工具 | control-api/internal/store/domain.go:68-78 | 审计链完整性不可信 | fixed | control-api c532d5a（事务化 + verify-log；存量链校验通过 19 条） |
 | FINDING-006 | 2026-08-09 | 架构评审（kimi） | watcher 非递归：只监听 tasks/ 根目录，TASK-xxx/ 子目录 task.md 修改不产生事件，增量同步近乎失效 | control-api/internal/watcher/watcher.go:39 | 人工改 task.md 时看板索引不刷新 | open | |
-| FINDING-007 | 2026-08-09 | 架构评审（kimi） | detailActor 硬编码返回 "agent"，人执行的 pause/resume 在 work_log.operator 也记为 agent | control-api/internal/engine/engine.go:165 | 审计语义失真，违反"记录审批人" | open | |
+| FINDING-007 | 2026-08-09 | 架构评审（kimi） | detailActor 硬编码返回 "agent"，人执行的 pause/resume 在 work_log.operator 也记为 agent | control-api/internal/engine/engine.go:165 | 审计语义失真，违反"记录审批人" | fixed | control-api 13382b2 |
+| FINDING-034 | 2026-08-11 | actor 归因修复（kimi） | createTask 创建任务时 work_log operator 硬编码 "human" 而非 X-User 真实用户名 | control-api/internal/api/tasks.go:62 | 归因失真残留 | open | |
+| FINDING-035 | 2026-08-11 | pipeline 校验（kimi） | check 子命令不加载 pipeline，merge 权力校验只在 serve 启动路径生效 | control-api/cmd/control-api/main.go | 自检覆盖面缺口 | open | |
+| FINDING-036 | 2026-08-11 | hook 实现（kimi） | check-conventions hook 为整仓扫描策略：他人未提交的违规（>60 行函数等）会拦截无关 commit | control-center/scripts/check-conventions.sh | 误拦截风险（设计取舍，可改 staged-only） | open | |
 | FINDING-008 | 2026-08-09 | 架构评审（kimi） | pipeline.yaml 热加载未实现：仅在启动时加载一次 | control-api/internal/api/server.go:35 | 编排修改需重启，与 README 声明不符 | open | |
 | FINDING-009 | 2026-08-09 | 架构评审（kimi） | nextTaskID 读目录 max+1 有竞态；title/body 直接 fmt.Sprintf 进 frontmatter，含冒号/换行产生非法 YAML | control-api/internal/api/tasks.go:133-148, 44-57 | 并发撞号；任务文件可被标题注入破坏 | open | |
 | FINDING-010 | 2026-08-09 | 架构评审（kimi） | config.Save 可能将 env 注入的 api_key 序列化落盘；Server.APIKey/LLM.APIKey 加载后无使用点（死配置） | control-api/internal/config/config.go:26, 143-148 | 密钥不落盘原则存在顺序脆弱性 | open | |
