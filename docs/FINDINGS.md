@@ -49,6 +49,7 @@
 | FINDING-041 | 2026-08-12 | piekbs 部署（kimi） | piekbs serve 在 DISPLAY/WAYLAND_DISPLAY 已设但托盘实际不可用的环境（vscode-server/远程桌面）走 tray.Run 静默返回，进程 exit 0 无任何日志；服务器部署须 env -u DISPLAY -u WAYLAND_DISPLAY 强制 headless | control-piekbs/cmd/piekbs/main.go:458-471 runServe | serve 假启动，排查成本高（本次连死 3 次才定位） | fixed | control-piekbs 85a53d6（tray 返回回退 headless + 日志；根因：tray 实现仅 darwin，Linux 为 stub 必立即返回） |
 | FINDING-042 | 2026-08-12 | piekbs 部署（kimi） | ~/.local/bin/piekbs 部署二进制（07-20）落后于仓源码（07-31 90a9438），无 rebuild/同步机制，serve 行为与源码脱节 | ~/.local/bin/piekbs vs control-piekbs | 部署漂移，已手工重编译恢复 | fixed | control-center 3f17dc5（setup-env piekbs 模块改为 fork 源码构建优先，过期自动重建） |
 | FINDING-043 | 2026-08-17 | FINDING-018 复查（kimi） | compose.sh 生成器仍输出 MySQL 8.0/Milvus/Redis 形态，与盘上已改为 Go/SQLite 两服务的 deploy/docker-compose.yml 不一致（生成器与产物漂移）；init-env 仍建 data/mysql、data/milvus 空目录，check.sh 仍检查 data/mysql | control-center/scripts/lib/compose.sh、init-env.sh:201、lib/check.sh:128 | 新环境跑 setup-env 会得到规划形态 compose，与当前实现形态不同 | wontfix | 人裁决（2026-08-17）：与 Java 工具链同理，属面向规划形态的有意保留；盘上文件维持手工修正的现状 |
+| FINDING-044 | 2026-08-17 | 人指出（用户） | 02-branch-worktree.md 仍称"Java 后端可直接对接"（pi RPC 集成句），为 Java 时代残留，033 批次文档修订漏网 | control-center/docs/architecture/02-branch-worktree.md:59 | 权柄文档与 Go 实现矛盾残留 | fixed | control-center 9ace6c7（更正为 control-api（Go）即经此对接；全章节 grep 复核无同类残留） |
 
 ## 已修复（留存痕）
 
