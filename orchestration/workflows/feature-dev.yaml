@@ -6,7 +6,7 @@ workflow:
       match: "type != bug"
   pipeline: pipeline.yaml       # 6 阶段全链（逐步审批闸）
   skills:                       # 组合规则：stage×1 + domain×N（enforce 四件套强制注入）
-    defaults: [backend-java]    # 默认领域技能；按 repo_key 可覆盖
+    defaults: [backend-go]      # 默认领域技能；按 repo_key 可覆盖（Java 项目用 backend-java）
     by_repo:
       control-web: [frontend-dev]
       control-db: [db-migration]

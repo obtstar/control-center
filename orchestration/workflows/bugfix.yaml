@@ -6,7 +6,7 @@ workflow:
       match: "type == bug"
   pipeline: bugfix-pipeline.yaml   # 精简链（跳设计，闸留 coding/merge）
   skills:
-    defaults: [backend-java]
+    defaults: [backend-go]      # 默认领域技能；按 repo_key 可覆盖（Java 项目用 backend-java）
     by_repo:
       control-web: [frontend-dev]
       control-db: [db-migration]
