@@ -4,7 +4,7 @@ title: control-web 审批工作台 MVP
 repo_key: control-web
 domain: frontend-dev
 stage: coding
-status: paused
+status: merged
 priority: ""
 authority: L1
 

@@ -1,6 +1,6 @@
 # 平台规划与执行进度
 
-更新：2026-08-09 · 分支约定：**平台当前只用 dev 分支**（main/release 暂不启用，bare 仓 HEAD 已全部指向 dev）
+更新：2026-08-17 · 分支约定：**平台当前只用 dev 分支**（main/release 暂不启用，bare 仓 HEAD 已全部指向 dev）
 
 ## 一、总体目标
 
@@ -41,7 +41,7 @@
 | 项 | 说明 | 优先级 |
 |---|---|---|
 | control-web 构建验证 | ~~pnpm install + build + vitest~~ 已绿 | ~~高~~ |
-| TASK-002 收尾 | 任务仍 paused（coding 产物已人工采纳到 dev） | 中 |
+| TASK-002 收尾 | ~~任务 paused~~ 已收尾：产物已采纳到 dev，状态置 merged | ~~中~~ |
 | testing 阶段接通 | 依赖本地 docker 环境 | 中 |
 | merge 阶段 webhook | 团队合并事件回传 → deliver | 低 |
 | authority-gate 强化 | pi 侧权柄强制（分支写保护等） | 中 |

@@ -7,10 +7,20 @@ init_piekbs() {
 
   # 0. 源码仓库由 sync_repos 统一管理（~/.repos/control-piekbs.git → ~/control-piekbs）
 
-  # 1. 二进制：GitHub release（linux-amd64，经 GH_PROXY）
-  if as_target_user "$USER_ENV command -v piekbs" &>/dev/null; then
-    log "piekbs 已安装，跳过二进制安装"
-  elif confirm_opt "安装 piekbs 二进制（GitHub release）？"; then
+  # 1. 二进制：优先从 fork 源码构建（DEPENDENCIES 策略"fork 锁定，升级走评审"——
+  #    部署必须与 ~/control-piekbs 源码一致，上游 release 仅作无源码时回退）
+  local src="$BASE_HOME/control-piekbs" bin="$BASE_HOME/.local/bin/piekbs"
+  if [[ -d "$src/cmd/piekbs" ]] && as_target_user "$USER_ENV command -v go" &>/dev/null; then
+    if [[ -f "$bin" ]] && [[ -z $(find "$src/cmd" "$src/internal" -name '*.go' -newer "$bin" -print -quit 2>/dev/null) ]]; then
+      log "piekbs 已安装且与 fork 源码同步，跳过"
+    else
+      as_target_user "mkdir -p '$BASE_HOME/.local/bin' && cd '$src' && $USER_ENV go build -tags fts5 -o '$bin' ./cmd/piekbs/" \
+        && log "piekbs 已从 fork 源码构建 → ~/.local/bin/piekbs（-tags fts5）" \
+        || warn "piekbs 源码构建失败（可手动: cd ~/control-piekbs && go build -tags fts5 -o ~/.local/bin/piekbs ./cmd/piekbs/）"
+    fi
+  elif as_target_user "$USER_ENV command -v piekbs" &>/dev/null; then
+    log "piekbs 已安装，跳过二进制安装（注意：无 fork 源码/go 工具链，无法校验与 control-piekbs 同步）"
+  elif confirm_opt "安装 piekbs 二进制（GitHub release，无 fork 源码时的回退）？"; then
     # API 直连（gh 代理对 api.github.com 返回 403），仅 tarball 下载走代理
     local dl_cmd="set -eo pipefail; "
     dl_cmd+="url=\$(curl -fsSL https://api.github.com/repos/pieteams/piekbs/releases/latest | grep -o 'https://[^\"]*linux-amd64.tar.gz' | head -1); "

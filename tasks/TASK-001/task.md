@@ -2,8 +2,9 @@
 task_id: TASK-001
 title: kimi联调
 repo_key: billing-core
-stage: design
-status: awaiting_approval
+domain: ""
+stage: coding
+status: running
 priority: ""
 authority: L1
 
