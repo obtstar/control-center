@@ -4,7 +4,7 @@ title: kimi联调
 repo_key: billing-core
 domain: ""
 stage: coding
-status: running
+status: awaiting_approval
 priority: ""
 authority: L1
 
