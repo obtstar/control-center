@@ -50,6 +50,7 @@
 | FINDING-042 | 2026-08-12 | piekbs 部署（kimi） | ~/.local/bin/piekbs 部署二进制（07-20）落后于仓源码（07-31 90a9438），无 rebuild/同步机制，serve 行为与源码脱节 | ~/.local/bin/piekbs vs control-piekbs | 部署漂移，已手工重编译恢复 | fixed | control-center 3f17dc5（setup-env piekbs 模块改为 fork 源码构建优先，过期自动重建） |
 | FINDING-043 | 2026-08-17 | FINDING-018 复查（kimi） | compose.sh 生成器仍输出 MySQL 8.0/Milvus/Redis 形态，与盘上已改为 Go/SQLite 两服务的 deploy/docker-compose.yml 不一致（生成器与产物漂移）；init-env 仍建 data/mysql、data/milvus 空目录，check.sh 仍检查 data/mysql | control-center/scripts/lib/compose.sh、init-env.sh:201、lib/check.sh:128 | 新环境跑 setup-env 会得到规划形态 compose，与当前实现形态不同 | wontfix | 人裁决（2026-08-17）：与 Java 工具链同理，属面向规划形态的有意保留；盘上文件维持手工修正的现状 |
 | FINDING-044 | 2026-08-17 | 人指出（用户） | 02-branch-worktree.md 仍称"Java 后端可直接对接"（pi RPC 集成句），为 Java 时代残留，033 批次文档修订漏网 | control-center/docs/architecture/02-branch-worktree.md:59 | 权柄文档与 Go 实现矛盾残留 | fixed | control-center 9ace6c7（更正为 control-api（Go）即经此对接；全章节 grep 复核无同类残留） |
+| FINDING-045 | 2026-08-17 | 人指出（用户） | 平台无 backend-go 领域技能：workflow 默认 domain skill 为 backend-java，openapi/代码注释示例同——平台自身 Go 栈反而无对应 skill | control-center orchestration/workflows/{feature-dev,bugfix}.yaml:9；control-api docs/api/openapi.yaml:484 | Go 任务默认加载 Java 约定，skill 组合与平台栈错配 | fixed | control-center 17cff3b（新增 backend-go skill + 默认改 Go，backend-java 保留按 repo_key 覆盖）+ control-api cd185cf + control-web 79e7594（契约/示例同步） |
 
 ## 已修复（留存痕）
 
