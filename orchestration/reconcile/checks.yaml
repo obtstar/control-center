@@ -1,0 +1,40 @@
+# 对账检查项（方案 D-2）：文档声明 vs 代码/配置事实的定期校验
+# 消费方：control-api reconcile 子命令（internal/reconcile；字段语义以其代码为准）
+# 路径约定：doc 相对 control-center 根；fact 相对工作用户 home（paths.home）
+# 退出语义：任一 CONFLICT → 退出码 1；仅 WARN → 0
+# 建议调度（人工安装，示例）：crontab -e →  */17 * * * * $HOME/control-api/control-api reconcile >> $HOME/logs/reconcile.log 2>&1
+checks:
+  - id: backend-stack
+    desc: 后端技术栈（01 章 ↔ control-api/go.mod）
+    doc: docs/architecture/01-overview.md
+    doc_must: ["Go 1.25"]                      # 文档必须包含
+    doc_must_not: ["Spring Boot", "Java 后端"] # 禁止表述复活即漂移
+    fact: control-api/go.mod
+    fact_must: ["module control-api"]
+    fact_must_not: ["springframework"]
+
+  - id: frontend-stack
+    desc: 前端技术栈（06 章 ↔ control-web/package.json 依赖）
+    doc: docs/architecture/06-web.md
+    doc_must: ["React", "PrimeReact", "Vite"]
+    doc_must_not: ["Vue", "Angular"]
+    fact: control-web/package.json
+    fact_json_deps: ["react", "primereact", "vite"]  # dependencies/devDependencies 键名
+
+  - id: database
+    desc: 数据库（01/08 章 ↔ control-api 实际驱动）
+    doc: docs/architecture/08-data-model.md
+    doc_must: ["SQLite"]
+    fact: control-api/go.mod
+    fact_must: ["modernc.org/sqlite"]
+    fact_must_not: ["go-sql-driver/mysql", "lib/pq"]
+
+  - id: registry-schema
+    desc: 注册表字段（14.2 声明 ↔ registry/repos.yaml 实际条目）
+    fact: control-center/registry/repos.yaml
+    registry_fields:                             # 声明出处：docs/architecture/14-multi-repo.md 14.2
+      required: [repo_key, git_url]
+      allowed: [repo_key, name, git_url, api_type, api_endpoint,
+                token_ref, openapi_ref, default_branch, max_worktrees,
+                executor_allowed, disabled]
+    # 未知字段 = WARN（增量漂移，提示 14.2 未声明）；缺 required = CONFLICT

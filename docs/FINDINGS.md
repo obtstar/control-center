@@ -51,9 +51,12 @@
 | FINDING-043 | 2026-08-17 | FINDING-018 复查（kimi） | compose.sh 生成器仍输出 MySQL 8.0/Milvus/Redis 形态，与盘上已改为 Go/SQLite 两服务的 deploy/docker-compose.yml 不一致（生成器与产物漂移）；init-env 仍建 data/mysql、data/milvus 空目录，check.sh 仍检查 data/mysql | control-center/scripts/lib/compose.sh、init-env.sh:201、lib/check.sh:128 | 新环境跑 setup-env 会得到规划形态 compose，与当前实现形态不同 | wontfix | 人裁决（2026-08-17）：与 Java 工具链同理，属面向规划形态的有意保留；盘上文件维持手工修正的现状 |
 | FINDING-044 | 2026-08-17 | 人指出（用户） | 02-branch-worktree.md 仍称"Java 后端可直接对接"（pi RPC 集成句），为 Java 时代残留，033 批次文档修订漏网 | control-center/docs/architecture/02-branch-worktree.md:59 | 权柄文档与 Go 实现矛盾残留 | fixed | control-center 9ace6c7（更正为 control-api（Go）即经此对接；全章节 grep 复核无同类残留） |
 | FINDING-045 | 2026-08-17 | 人指出（用户） | 平台无 backend-go 领域技能：workflow 默认 domain skill 为 backend-java，openapi/代码注释示例同——平台自身 Go 栈反而无对应 skill | control-center orchestration/workflows/{feature-dev,bugfix}.yaml:9；control-api docs/api/openapi.yaml:484 | Go 任务默认加载 Java 约定，skill 组合与平台栈错配 | fixed | control-center 17cff3b（新增 backend-go skill + 默认改 Go，backend-java 保留按 repo_key 覆盖）+ control-api cd185cf + control-web 79e7594（契约/示例同步） |
+| FINDING-046 | 2026-08-17 | D-2 探查（kimi） | 14-multi-repo.md 声明"control-api 启动时读取 repos.yaml"，全仓 grep 无任何注册表解析代码（仅 setup-env.sh 环境同步消费）；任务 repo_key 不校验注册表（FINDING-019 同根） | control-center/docs/architecture/14-multi-repo.md:62；control-api internal/ | 权柄文档声称的运行时行为不存在 | open | 修复=实现注册表解析或修订 14 章，另批处理 |
+| FINDING-047 | 2026-08-17 | D-2 实施（kimi） | cmd/control-api/main.go 自建仓起从未提交：.gitignore 模式 `control-api` 匹配任意路径组件，cmd/control-api/ 整目录被忽略 | control-api/.gitignore:1；`git ls-files cmd/` 为空；check-ignore 命中第 1 行 | 构建入口源码无版本管理，clone 仓库后无法 go build | fixed | control-api 939875d（.gitignore 锚定 /control-api + main.go 入库） |
 
 ## 已修复（留存痕）
 
 - 2026-08-09：README/DEPENDENCIES 的 Java Spring Boot 表述 → 已更正为 Go/占位仓库（control-center c95a46b，用户提交）
 - 2026-08-09：deploy/docker-compose.yml MySQL/Redis/Milvus 形态 → 已重写为 Go/SQLite 两服务（~/deploy 非 Git 仓，无提交）
 - 2026-08-09：06-web.md 后端 Spring Boot 表述 → 已更正为 control-api（Go）+ OAS 3.1 契约（control-center 4ffb4d0）
+- 2026-08-17：方案 D-2 对账 loop 上线（control-api 939875d + control-center checks.yaml）：`control-api reconcile` 按 orchestration/reconcile/checks.yaml 校验文档声明 vs 代码事实，CONFLICT 退出码 1；首跑捕获 registry `path` 字段 14.2 未声明（已知 WARN，14.2 修订待人裁决）；Java 复活实验验证 CONFLICT 检出
