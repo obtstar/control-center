@@ -1,6 +1,6 @@
 ---
-status: 设计中
-last_verified: 2026-08-11
+status: 部分实现（目录布局/分支约定已生效；模板仓/OpenAPI 自动建分支/RAG 钩子为规划中）
+last_verified: 2026-08-17
 ---
 
 # 13 仓库模板设计
@@ -42,16 +42,15 @@ last_verified: 2026-08-11
 │       ├── repos.yaml             # 仓库注册表（14.2）
 │       └── executors.yaml         # 执行节点登记（10）
 ├── repos/                         # 代码仓库工作副本（db/backend/frontend 均在此）
-│   ├── control-api/               # 平台后端（Java Spring Boot）
+│   ├── control-api/               # 平台后端（Go + stdlib mux）
 │   ├── control-web/               # 平台前端（React + PrimeReact + Vite）
-│   ├── control-db/                # 平台数据库（MySQL DDL/DML）
+│   ├── control-db/                # 平台数据库（占位仓；当前 SQLite DDL 内嵌 control-api，规模化迁此）
 │   ├── billing-core/              # 业务仓库（示例）
 │   └── ...
 ├── wt/                            # Git Worktree 根（任务物理隔离）
 │   └── {repo}/{task-id}-{type}-{name}
-├── data/                          # 本地服务数据卷
-│   ├── mysql/
-│   └── milvus/
+├── data/                          # 本地服务数据
+│   └── control.db                 # SQLite 运行时库（WAL）
 ├── logs/                          # 服务运行日志
 └── scripts/                       # 初始化/运维脚本
 ```
@@ -62,9 +61,9 @@ last_verified: 2026-08-11
 
 | 目录 | 职责 | 变更入口 |
 |-----|------|---------|
-| `~/control-center/docs/design/overview/` | 概要设计（集中），RAG 索引源 | MR（单人自审合并） |
-| `~/control-center/docs/design/external/` | 外部设计（集中），RAG 索引源 | MR（单人自审合并） |
-| `~/control-center/docs/requirements/` | 需求文档，RAG 索引源 | MR |
+| `~/control-center/docs/design/overview/` | 概要设计（集中），KB 索引源（规划中） | MR（单人自审合并） |
+| `~/control-center/docs/design/external/` | 外部设计（集中），KB 索引源（规划中） | MR（单人自审合并） |
+| `~/control-center/docs/requirements/` | 需求文档，KB 索引源（规划中） | MR |
 | `~/control-center/orchestration/` | 状态机/Prompt 配置 | MR + 用户确认 |
 | `~/control-center/registry/` | 仓库/执行节点注册表 | MR + 用户确认 |
 | `~/repos/` | 全部代码仓库（平台 + 业务） | 仓库内 MR |
@@ -79,9 +78,9 @@ last_verified: 2026-08-11
 
 | 类型 | 示例 | 说明 |
 |-----|------|------|
-| 平台后端 | `control-api` | Java Spring Boot：任务、状态机、RAG |
+| 平台后端 | `control-api` | Go + stdlib mux：任务、状态机、KB 检索 |
 | 平台前端 | `control-web` | React + PrimeReact + Vite：看板/干预/合并/日志 |
-| 平台数据库 | `control-db` | MySQL DDL/DML（平台 schema：task、work_log…） |
+| 平台数据库 | `control-db` | 占位仓；SQLite DDL 内嵌 control-api store.go，规模化迁此 |
 | 业务代码 | `billing-core`、`billing-web` | 业务后端/前端，含自身 DDL/DML |
 
 ### 目录结构
@@ -91,19 +90,19 @@ control-api/  (或 billing-core/)
 ├── README.md                     # 项目说明（指向控制中心概要/外部设计索引）
 ├── .gitignore
 ├── .editorconfig
-├── .pre-commit-config.yaml       # 统一 pre-commit（含 RAG 增量索引钩子）
+├── .pre-commit-config.yaml       # 统一 pre-commit（KB 索引钩子规划中；当前为 check-conventions.sh）
 ├── .gitlab/                      # 或 .github/
 │   └── merge_request_templates/default.md
 ├── docs/design/internal/         # 内部设计（详细设计），与本仓库代码同库
 │   └── module-detail.md
-├── src/                          # 代码实现（后端 Java / 前端 React / 脚本）
+├── src/                          # 代码实现（后端 Go / 前端 React / 脚本）
 │   └── main/                     # 按语言/框架约定分层
 ├── tests/                        # 测试
 ├── db/                           # 本代码仓库对应的 DDL/DML（如适用）
 │   └── ddl/
 │       └── V001__init_schema.sql
 ├── ci/                           # 构建/测试/静态检查脚本
-└── openapi/                      # 接口契约（供控制中心 RAG 采集，如适用）
+└── openapi/                      # 接口契约（供控制中心 KB 采集，规划中）
     └── openapi.yaml
 ```
 
@@ -123,9 +122,9 @@ control-api/  (或 billing-core/)
 
 | 事件 | 动作 |
 |-----|------|
-| MR 合并到 `dev` | Webhook → 控制中心增量 RAG 索引 + 任务状态流转 |
-| pre-commit | 本地静态检查 + 变更文件 RAG 索引通知 |
-| 分支推送 | 经仓库 OpenAPI 通知控制中心同步状态 |
+| MR 合并到 `dev` | Webhook → 任务状态流转（已实现 merge-event）；增量 KB 索引为规划中 |
+| pre-commit | 本地静态检查（check-conventions.sh 已装 control-api/control-web）；KB 索引通知为规划中 |
+| 分支推送 | 经仓库 OpenAPI 通知控制中心同步状态（规划中） |
 
 ---
 
@@ -145,7 +144,7 @@ refactor(rag): 拆分增量索引任务
 | type | 说明 |
 |-----|------|
 | `feat` / `fix` | 功能 / 缺陷修复 |
-| `docs` | 设计文档、README（触发 RAG 重索引） |
+| `docs` | 设计文档、README |
 | `db` | DDL/DML 变更（触发数据库评审） |
 | `refactor` / `test` / `ci` / `chore` | 重构 / 测试 / CI / 杂项 |
 
@@ -182,11 +181,11 @@ refactor(rag): 拆分增量索引任务
 repos:
   - repo: local
     hooks:
-      - id: rag-index-notify
-        name: 通知 RAG 增量索引
-        entry: ci/rag-index.sh
+      # KB 增量索引钩子为规划中；当前以 check-conventions.sh 为统一 pre-commit
+      - id: conventions
+        name: 规模红线 + 静态检查
+        entry: scripts/check-conventions.sh
         language: script
-        files: '^(src/|openapi/)'
       - id: sql-lint
         name: SQL 脚本格式校验
         entry: ci/sql-lint.sh

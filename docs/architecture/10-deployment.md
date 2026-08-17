@@ -1,6 +1,6 @@
 ---
 status: 已实现
-last_verified: 2026-08-11
+last_verified: 2026-08-17
 ---
 
 # 10 部署方案（个人本地版）
@@ -20,7 +20,7 @@ last_verified: 2026-08-11
 └── LiteLLM（外部消费，不部署）    # 唯一出网通道
 ```
 
-**不部署**：MySQL（个人版用 SQLite，JDBC 可回切）、Ollama、LiteLLM 代理、executor 舰队。
+**不部署**：MySQL（个人版用 SQLite，规模化可回切）、Ollama、LiteLLM 代理、executor 舰队。
 
 ## 10.2 docker-compose（本地 docker 开发/测试环境）
 
@@ -32,7 +32,7 @@ compose 是**流水线"测试验证"阶段的执行载体**：编码完成后，
 - 测试报告回传 control-api，驱动状态机；测试驳回打回编码阶段（pipeline.yaml）
 - `deploy/.env` 密钥为占位符（`change-me`），填好后才可 `docker compose up -d`
 
-> 资源边界：本地 docker 测试峰值 2-4C/4-8GB（Maven/vitest/Playwright），
+> 资源边界：本地 docker 测试峰值 2-4C/4-8GB（go test/pnpm vitest），
 > 并发槽位计入任务配额，避免与编码/检索争抢本机资源。
 
 ## 10.3 executor（可选，默认不启用）
@@ -72,4 +72,4 @@ PieKBS serve（本机 127.0.0.1:8766，知识数据库）
 |---|------|------|
 | control-api + web | 1-2C / 2GB | 个人负载 |
 | PieKBS | 0.5C / 0.5GB | FTS 检索 |
-| 本地构建/测试峰值 | 2-4C / 4-8GB | Maven/vitest/Playwright 并发槽位，计入任务配额 |
+| 本地构建/测试峰值 | 2-4C / 4-8GB | go/vitest 并发槽位，计入任务配额 |

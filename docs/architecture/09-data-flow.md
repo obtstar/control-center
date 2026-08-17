@@ -1,43 +1,45 @@
 ---
-status: 设计中
-last_verified: 2026-08-11
+status: 部分实现（主链路 1/3/6 已通；执行节点/报告生成/Worktree 自动化为规划中）
+last_verified: 2026-08-17
 ---
 
 # 09 数据流示例：功能追加全流程
 
+> 与实现对齐说明：当前任务权威为 `control-center/tasks/TASK-*/task.md`（任务即文档），
+> 知识检索走 PieKBS（FTS + REST `/api/search`，经 control-api `/api/kb/search` 代理），
+> 非原设的 RAG/MySQL 形态。各步骤标注实现状态。
+
 ```
-1. 需求录入 (Web)
-   用户在 React 端创建 REQ-001，上传需求文档到控制中心仓库 docs/requirements
-   → 写入 MySQL task 表 → 触发后端编排
+1. 需求录入 (Web)【已实现】
+   用户在 Web 工作台创建任务（POST /api/tasks）
+   → 任务落 tasks/TASK-*/task.md（权威）→ SQLite task_index 派生同步
+   → 进入 pipeline 首阶段
 
-2. 项目理解 (RAG)
-   Spring 后端检索 RAG（控制中心仓库设计文档 + 各代码仓库 + OpenAPI 契约）
-   → 生成影响分析 → Web 推送 → 自动进入设计阶段（用户可随时介入修正）
+2. 项目理解 (KB)【部分实现】
+   后端经 PieKBS 检索平台知识库（grounding 支持 off/warn/enforce 三模式，
+   enforce 下无据输出 NO_BASIS 并自动暂停；当前默认 off，FINDING-016/017）
+   → 生成影响分析 → 待审批
 
-3. 设计阶段
-   后端生成概要/外部设计 → 文档提交控制中心仓库 MR（集中管理）→ 状态自动流转
+3. 设计阶段【已实现】
+   产物落任务目录 design.md → awaiting_approval → 用户批准/驳回附批注
 
-4. 编码阶段（多代码仓库 Worktree）
-   后端调用代码仓库 OpenAPI 创建 feature/TASK-001 分支（从 main 或 dev 切出）+ Worktree
-   → CLI Agent（pi.dev）经 LiteLLM 生成代码
-   → 内部设计（docs/design/internal/）与代码同分支、同 MR 提交
-   → 本地测试 → commit → push → 创建 MR 指向 release/{当月}（或 dev）
+4. 编码阶段（多代码仓库 Worktree）【部分实现】
+   pi 执行器（agent.command 配置）生成代码并落 report-<stage>.md
+   → feature 分支 + Worktree 自动化、MR 创建为规划中（当前人工/脚本）
 
-5. 测试阶段（执行节点，本地预处理验证）
-   executor / CI Runner 拉取分支执行集成测试、回归测试、静态检查
-   → 报告回传（MR 注释 + Web 可见）→ 写 work_log
-   → 自动质量关：heavy 模型自评 MR Diff，自评通过 + 测试全绿 → 进入"待合并"
+5. 测试阶段（执行节点，本地预处理验证）【规划中】
+   executor 舰队未建；自动质量关（heavy 模型自评 MR Diff）未实现
 
-6. 合并 (GitLab 人工)
-   用户在 GitLab 查看 Diff、测试报告与自评报告 → 人工合并
-   → Webhook 回传合并事件 → 任务流转 + 增量 RAG 索引
+6. 合并 (Git 平台人工)【已实现】
+   用户在 Git 平台查看 Diff 与报告 → 人工合并
+   → Webhook 回传（POST /api/webhooks/merge-event，独立密钥 HMAC）
+   → 任务置 merged 并自动推进 deliver
 
-7. 发布与归档
-   release/{当月} 月度在 GitLab 人工合并 → main
-   → 全流程日志写入 MySQL work_log
-   → 清理 Worktree（保留 7 天归档）
+7. 发布与归档【部分实现】
+   全流程日志写 SQLite work_log（hash 链，verify-log 可校验）
+   → Worktree 清理/归档为规划中
 
-8. 报告生成
-   定时任务聚合 work_log 生成日报/周报/任务报告（work_report）→ Web 端查看
-   → pi 会话树 /export HTML 归档为任务证据（可追溯完整执行过程）
+8. 报告生成【规划中】
+   定时聚合 work_log 生成日报/周报未实现；
+   pi 会话 /export HTML 归档为任务证据沿用中
 ```

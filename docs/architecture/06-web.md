@@ -1,6 +1,6 @@
 ---
 status: 设计中
-last_verified: 2026-08-11
+last_verified: 2026-08-17
 ---
 
 # 06 Web 管理端（React + PrimeReact + Vite）
@@ -26,7 +26,7 @@ last_verified: 2026-08-11
 | Diff 预览 | 代码变更与测试报告查看，跳转 GitLab MR 人工合并 | Editor / Splitter / ScrollPanel |
 | 工作报告 | 日报/周报/任务报告查看（work_report） | DataTable / Editor |
 | 日志检索 | work_log 结构化日志查询 | DataTable + Filter |
-| RAG 检索 | 设计文档/代码语义检索 | DataTable / Search |
+| KB 检索 | PieKBS 知识检索（/kb 页，经 control-api 代理） | DataTable / Search |
 
 ## 与后端对接
 

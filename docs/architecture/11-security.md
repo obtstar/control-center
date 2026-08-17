@@ -1,6 +1,6 @@
 ---
 status: 已实现
-last_verified: 2026-08-11
+last_verified: 2026-08-17
 ---
 
 # 11 安全与合规
@@ -15,7 +15,7 @@ last_verified: 2026-08-11
 | executor 执行未审代码 | executor 仅运行 `ci/` 白名单脚本（16.7），非 root 运行 + 出站白名单兜底 |
 | 注册表篡改 | registry/ 在 Git 版本化，变更走 MR，历史可回溯可 revert |
 | 自我升级风险 | Prompt/Skill 升级走 MR + 用户确认，可单任务灰度 |
-| 追溯合规 | MySQL `work_log` 结构化日志（禁止物理删除 + prev_hash 哈希链防篡改），与 Linux 审计交叉核对，支持导出 |
+| 追溯合规 | SQLite `work_log` 结构化日志（禁止物理删除 + prev_hash/entry_hash 哈希链防篡改，verify-log 可校验），与 Linux 审计交叉核对，支持导出 |
 
 ## 已知接受风险（单人场景，用户已拍板）
 

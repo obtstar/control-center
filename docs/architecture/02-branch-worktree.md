@@ -1,6 +1,6 @@
 ---
 status: 设计中
-last_verified: 2026-08-11
+last_verified: 2026-08-17
 ---
 
 # 02 多代码仓库 & Git Worktree 分支管理
@@ -71,7 +71,7 @@ main ──→ dev（只读）──→ release（只读）
 |-----|------|------|
 | 编码/重构/单元测试 | **WSL CLI（pi.dev）** | Agent 在 WSL 内自动执行，操作 `~/wt/` Worktree |
 | 人工编码/审查/微调 | **VSCode（Remote-WSL）** | 开发者经 VSCode 连接 WSL，浏览/编辑/调试 Agent 产出；VSCode Extension 负责路径转换与 Diff 预览同步 |
-| 设计文档/影响分析/RAG 检索 | **Web 客户端** | 文档查看 + Agent 生成（经 WSL CLI 提交 MR） |
+| 设计文档/影响分析/KB 检索 | **Web 客户端** | 文档查看 + Agent 生成（经 WSL CLI 提交 MR） |
 | 测试执行（集成/回归/静态检查） | **执行节点**（CI Runner / executor） | 重负载构建测试在执行节点运行（见 [10 节点拆分](10-deployment.md#节点拆分编排节点-vs-执行节点)）；编排节点仅做提交前轻量校验；报告回传 Web |
 | 任务干预/合并/日志 | **Web 客户端** | Diff 预览、任务暂停/回退、GitLab MR 跳转合并、work_log 检索 |
 

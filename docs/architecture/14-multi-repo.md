@@ -1,6 +1,6 @@
 ---
-status: 设计中
-last_verified: 2026-08-11
+status: 部分实现（注册表/命名规范/任务流转已生效；跨仓库调度/Webhook 自动接线/KB 聚合检索为规划中）
+last_verified: 2026-08-17
 ---
 
 # 14 多仓库管理设计
@@ -16,7 +16,7 @@ last_verified: 2026-08-11
 ```
                      ┌─────────────────────────────────────────┐
                      │  控制中心（registry/ 注册表 + 调度）       │
-                     │  注册 · 配额 · Webhook · RAG 聚合         │
+                     │  注册 · 配额 · Webhook · KB 聚合（规划中）  │
                      └──────┬──────────────────────┬────────────┘
                             │ OpenAPI / Webhook     │
                ┌────────────┴──────┐    ┌───────────┴───────────┐
@@ -42,7 +42,7 @@ repos:
     api_type: GITLAB                # GITLAB / GITHUB / GITEA
     api_endpoint: http://git.internal/api/v4
     token_ref: env:GIT_TOKEN        # 密钥引用，不存明文
-    openapi_ref: openapi/openapi.yaml  # OpenAPI 契约路径，供 RAG 采集
+    openapi_ref: openapi/openapi.yaml  # OpenAPI 契约路径，供 KB 采集（规划中）
     default_branch: dev
     max_worktrees: 3                # 仓库级并发 Worktree 配额
     executor_allowed: true          # false = 机密仓库，仅编排节点执行，不分发 executor
@@ -59,17 +59,17 @@ repos:
     disabled: false
 ```
 
-control-api 监听控制中心仓库变更（Webhook / 定时 pull），`repos.yaml` 变更后热加载生效；运行时状态（连通性、最近同步时间）缓存于内存/Redis，不落库。
+control-api 启动时读取 `repos.yaml`（watcher 监听任务目录已通；注册表热加载为规划中）。运行时状态缓存于内存，不落库（Redis 未接入）。
 
 ## 14.3 管理能力
 
 | 能力 | 说明 |
 |-----|------|
 | 仓库注册 | 编辑 `registry/repos.yaml` 提 MR，合并后 control-api 热加载 |
-| 统一接入 | 通过仓库 OpenAPI 统一操作：分支创建、MR、Webhook、状态查询 |
-| 跨仓库任务 | 一个任务可关联多个仓库，分别创建 Worktree，按依赖顺序执行 |
-| 跨仓库检索 | RAG 聚合所有启用仓库代码 + OpenAPI 契约，支持跨仓库依赖定位 |
-| 状态同步 | Webhook 实时回传分支/MR/合并事件，驱动任务状态流转 |
+| 统一接入 | 通过仓库 OpenAPI 统一操作：分支创建、MR、Webhook、状态查询（规划中） |
+| 跨仓库任务 | 一个任务可关联多个仓库，分别创建 Worktree，按依赖顺序执行（规划中；当前任务单 repo_key） |
+| 跨仓库检索 | KB 聚合所有启用仓库知识 + OpenAPI 契约（规划中；当前 KB 仅平台级 control-wiki） |
+| 状态同步 | merge-event Webhook 已实现（HMAC 独立密钥）；分支/MR 事件回传为规划中 |
 
 ## 14.4 命名规范（多仓库统一）
 
@@ -84,7 +84,7 @@ control-api 监听控制中心仓库变更（Webhook / 定时 pull），`repos.y
 
 ```
 TASK-002：新增计费报表接口（修改 billing-core，依赖 order-service 契约）
-1. 控制中心解析任务 → 检索 RAG 定位依赖 → 确认影响仓库
+1. 控制中心解析任务 → 检索 KB 定位依赖（规划中） → 确认影响仓库
 2. 为 billing-core 创建 feature/TASK-002-xxx + Worktree
 3. order-service 仅只读（检索其 OpenAPI 契约，不改动）
 4. billing-core 编码完成 → MR → 用户在 GitLab 人工合并 release/dev
@@ -103,15 +103,15 @@ TASK-002：新增计费报表接口（修改 billing-core，依赖 order-service
 ## 14.7 追溯
 
 - **变更历史**：注册表的增删改即 Git 提交历史，天然可回溯、可 `git revert`
-- **运行审计**：`work_log` 记录 `repo_key`、`branch`、`worktree_path`、`git_commit`，关联任务与执行身份
+- **运行审计**：`work_log` 记录 `task_id`/`stage`/`action`/`operator`/`model`/`detail`，关联任务与执行身份（branch/worktree/commit 字段为规划中）
 - **删除保护**：仓库仅可 `disabled: true` 停用，不从注册表物理删除，保留追溯链条
 
 ## 14.8 仓库接入流程
 
 ```
 1. 用户编辑 registry/repos.yaml，新增仓库条目，提交 MR 并合并
-2. control-api 检测到注册表变更 → 热加载 → 校验连通性（OpenAPI 握手）
-3. 自动创建 Webhook（push / MR / merge 事件）
-4. 触发全量 RAG 索引（代码 + OpenAPI 契约）
+2. control-api 读取注册表条目（热加载与连通性握手为规划中）
+3. Webhook 接线（merge-event 已实现；push/MR 事件为规划中）
+4. KB 全量采集（代码 + OpenAPI 契约，规划中）
 5. 仓库启用 → 可分配任务
 ```
