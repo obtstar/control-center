@@ -3,8 +3,8 @@ task_id: TASK-001
 title: kimi联调
 repo_key: billing-core
 domain: ""
-stage: testing
-status: running
+stage: merge
+status: awaiting_approval
 priority: ""
 authority: L1
 
