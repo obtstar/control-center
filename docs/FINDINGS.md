@@ -25,7 +25,7 @@
 | FINDING-018 | 2026-08-09 | 架构评审（kimi） | control-center/scripts 仍安装 JDK/Maven（Java 时代遗留），与 Go 实现无关 | control-center/scripts/lib/toolchain.sh | 环境冗余，文档已修正但脚本未清理 | open | |
 | FINDING-019 | 2026-08-09 | 架构评审（kimi） | TASK-001 repo_key=billing-core 未登记在 registry/repos.yaml（仅为注释示例） | control-center/tasks/TASK-001/task.md；registry/repos.yaml | 任务指向不存在的仓库登记 | open | |
 | FINDING-020 | 2026-08-09 | 架构评审（kimi） | sessions.expires_at 声明 DATETIME 实存 Unix 秒整数；server.go:46 / agent.go:53 吞 os.MkdirAll/WriteFile 错误 | control-api/internal/store/store.go:81, domain.go:188 | 类型不一致隐患；错误被吞难排查 | fixed | control-api 46f14a4（DDL 更正 INTEGER 兼容存量；两处错误分别返错/日志） |
-| FINDING-021 | 2026-08-09 | web 完善（kimi） | control-web 构建单 chunk 722.8 kB（PrimeReact/主题整包引入），未做代码分割 | control-web vite build 警告 | 首屏加载体积大 | open | |
+| FINDING-021 | 2026-08-09 | web 完善（kimi） | control-web 构建单 chunk 722.8 kB（PrimeReact/主题整包引入），未做代码分割 | control-web vite build 警告 | 首屏加载体积大 | fixed | control-web a8fb2f9（Scalar 路由懒加载 2.9MB 移出首屏 + vendor 分包；首屏 ~1.1MB/gzip ~314KB，降 ~70%） |
 | FINDING-022 | 2026-08-09 | web 完善（kimi） | control-web 无 router 级测试基建，路由兜底分流逻辑（NotFoundRedirect）无测试覆盖 | control-web/src/router/router.tsx | 路由行为回归无保障 | open | |
 | FINDING-023 | 2026-08-09 | web 核查（kimi） | 审批对话框编程式关闭不触发 onHide，再次打开残留上一条批注 | control-web/src/components/ApprovalDialog.tsx | 审批操作数据串扰 | fixed | control-web bc24067 |
 | FINDING-024 | 2026-08-09 | web 核查（kimi） | 前端无 401 处理：token 过期后列表页仅 Toast 报错，不登出不跳转 | control-web/src/api/client.ts | 会话过期体验断裂 | fixed | control-web bc24067 |
