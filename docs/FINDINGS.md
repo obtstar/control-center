@@ -22,7 +22,7 @@
 | FINDING-015 | 2026-08-09 | API 契约核对（kimi） | OAS 契约三份副本（TASK-002 设计 / control-api / control-web），无单一可信源声明 | control-center/tasks/TASK-002/design-openapi.yaml 等 | 副本各自漂移风险 | open | |
 | FINDING-016 | 2026-08-09 | 集成核查（kimi） | control-api ↔ PieKBS 无任何代码级集成（全仓无 MCP/kb_search 调用）；grounding 仅靠 prompt 注入 skill；"有据可依"无代码级强制 | control-api 全仓 grep | 18.3 grounding 无结构性保障 | fixed | control-api 6f31482（窄接口 + REST 实现 + warn/enforce 模式，默认 off 待 KB 链路通） |
 | FINDING-017 | 2026-08-09 | 集成核查（kimi） | 知识链路未通：wiki/ 四个产物目录全空；distill 已配置但 LiteLLM 网关不可达（litellm.internal DNS 解析失败），端到端未验证；wiki-maintenance cron 依赖 serve 常驻，未装服务 | control-wiki/wiki/；control-wiki/config.yaml | 蒸馏/检索能力当前不可用 | open | 外部依赖：网关恢复后验证 |
-| FINDING-018 | 2026-08-09 | 架构评审（kimi） | control-center/scripts 仍安装 JDK/Maven（Java 时代遗留），与 Go 实现无关 | control-center/scripts/lib/toolchain.sh | 环境冗余，文档已修正但脚本未清理 | open | |
+| FINDING-018 | 2026-08-09 | 架构评审（kimi） | control-center/scripts 仍安装 JDK/Maven（曾判为 Java 时代遗留） | control-center/scripts/lib/toolchain.sh | 误判：环境冗余不成立 | wontfix | 人裁决（2026-08-17）：初始化保留 Java 工具链属有意 provisioning（面向业务项目），仅 Agent 不使用 Java 开发 API，不得清理 |
 | FINDING-019 | 2026-08-09 | 架构评审（kimi） | TASK-001 repo_key=billing-core 未登记在 registry/repos.yaml（仅为注释示例） | control-center/tasks/TASK-001/task.md；registry/repos.yaml | 任务指向不存在的仓库登记 | open | |
 | FINDING-020 | 2026-08-09 | 架构评审（kimi） | sessions.expires_at 声明 DATETIME 实存 Unix 秒整数；server.go:46 / agent.go:53 吞 os.MkdirAll/WriteFile 错误 | control-api/internal/store/store.go:81, domain.go:188 | 类型不一致隐患；错误被吞难排查 | fixed | control-api 46f14a4（DDL 更正 INTEGER 兼容存量；两处错误分别返错/日志） |
 | FINDING-021 | 2026-08-09 | web 完善（kimi） | control-web 构建单 chunk 722.8 kB（PrimeReact/主题整包引入），未做代码分割 | control-web vite build 警告 | 首屏加载体积大 | fixed | control-web a8fb2f9（Scalar 路由懒加载 2.9MB 移出首屏 + vendor 分包；首屏 ~1.1MB/gzip ~314KB，降 ~70%） |
@@ -48,6 +48,7 @@
 | FINDING-040 | 2026-08-12 | KB/Scalar 端点实现（kimi） | /api/openapi.yaml 与 findings 解析端点硬编码假设契约/FINDINGS 位于 paths.home 下的 control-api/control-center 固定相对路径，仓位置变更即 500 | control-api/internal/api/server.go | 部署形态耦合，搬仓即坏 | open | |
 | FINDING-041 | 2026-08-12 | piekbs 部署（kimi） | piekbs serve 在 DISPLAY/WAYLAND_DISPLAY 已设但托盘实际不可用的环境（vscode-server/远程桌面）走 tray.Run 静默返回，进程 exit 0 无任何日志；服务器部署须 env -u DISPLAY -u WAYLAND_DISPLAY 强制 headless | control-piekbs/cmd/piekbs/main.go:458-471 runServe | serve 假启动，排查成本高（本次连死 3 次才定位） | fixed | control-piekbs 85a53d6（tray 返回回退 headless + 日志；根因：tray 实现仅 darwin，Linux 为 stub 必立即返回） |
 | FINDING-042 | 2026-08-12 | piekbs 部署（kimi） | ~/.local/bin/piekbs 部署二进制（07-20）落后于仓源码（07-31 90a9438），无 rebuild/同步机制，serve 行为与源码脱节 | ~/.local/bin/piekbs vs control-piekbs | 部署漂移，已手工重编译恢复 | fixed | control-center 3f17dc5（setup-env piekbs 模块改为 fork 源码构建优先，过期自动重建） |
+| FINDING-043 | 2026-08-17 | FINDING-018 复查（kimi） | compose.sh 生成器仍输出 MySQL 8.0/Milvus/Redis 形态，与盘上已改为 Go/SQLite 两服务的 deploy/docker-compose.yml 不一致（生成器与产物漂移）；init-env 仍建 data/mysql、data/milvus 空目录，check.sh 仍检查 data/mysql | control-center/scripts/lib/compose.sh、init-env.sh:201、lib/check.sh:128 | 新环境跑 setup-env 会得到规划形态 compose，与当前实现形态不同 | wontfix | 人裁决（2026-08-17）：与 Java 工具链同理，属面向规划形态的有意保留；盘上文件维持手工修正的现状 |
 
 ## 已修复（留存痕）
 
