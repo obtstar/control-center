@@ -56,7 +56,7 @@ main ──→ dev（只读）──→ release（只读）
 ## 执行 Agent 职责
 
 - 终端 CLI Agent（**pi.dev 为核心工具**，Earendil Pi Coding Agent，MIT）
-- **control-api 经 pi 的 RPC 模式（JSON over stdin/stdout）驱动 Agent**——该模式专为非 Node 集成设计，Java 后端可直接对接；一次性任务可用 print/JSON 模式（`pi -p`）
+- **control-api 经 pi 的 RPC 模式（JSON over stdin/stdout）驱动 Agent**——该模式专为非 Node 集成设计，control-api（Go）即经此对接；一次性任务可用 print/JSON 模式（`pi -p`）
 - pi 原生能力直接复用：**Skills**（SKILL.md 能力包，openskills 管理，见 07.3）、**Extensions**（TypeScript，含官方 permission-gate / protected-paths / sandbox 示例）、**会话树**（单文件存储，`/export` HTML 可归档为任务证据）
 - 模型统一经企业内 LiteLLM 代理外接：`claude-sonnet` / `claude-opus`（Anthropic）+ `copilot-chat`（GitHub Copilot）；pi 的自定义 provider（models.json）配置见 [04 AI 网关](04-ai-gateway.md)
 - 接收控制中心指令，操作 Worktree 与 Git
