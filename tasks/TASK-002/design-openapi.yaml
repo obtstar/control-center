@@ -1,3 +1,6 @@
+# ⚠️ 历史设计稿，非权威契约（FINDING-015，2026-08-18 标注）
+# 权威契约 = control-api/docs/api/openapi.yaml；control-web/openapi.yaml 为其逐字节同步副本。
+# 本文件仅为 TASK-002 设计阶段的任务产物存档，后续契约演进不回流此处，请勿以本文件为准。
 openapi: 3.1.0
 info:
   title: control-api (control-web MVP subset)
