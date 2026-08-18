@@ -34,7 +34,7 @@ checks:
     fact: control-center/registry/repos.yaml
     registry_fields:                             # 声明出处：docs/architecture/14-multi-repo.md 14.2
       required: [repo_key, git_url]
-      allowed: [repo_key, name, git_url, api_type, api_endpoint,
+      allowed: [repo_key, name, path, git_url, api_type, api_endpoint,
                 token_ref, openapi_ref, default_branch, max_worktrees,
                 executor_allowed, disabled]
     # 未知字段 = WARN（增量漂移，提示 14.2 未声明）；缺 required = CONFLICT

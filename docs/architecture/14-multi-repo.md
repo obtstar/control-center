@@ -38,6 +38,9 @@ last_verified: 2026-08-17
 repos:
   - repo_key: billing-core
     name: 计费核心
+    path: wt/billing-core/dev      # 工作区位置（相对工作用户 home）：平台仓为顶级目录
+                                   # （如 control-api），业务仓为 wt/ 前缀常驻工作区；
+                                   # setup-env 按此落盘，不可由 repo_key 推导
     git_url: ssh://git@git.internal/billing/billing-core.git
     api_type: GITLAB                # GITLAB / GITHUB / GITEA
     api_endpoint: http://git.internal/api/v4
@@ -49,6 +52,7 @@ repos:
     disabled: false                 # 逻辑停用，保留历史
   - repo_key: billing-reports
     name: 计费报表
+    path: wt/billing-reports/dev
     git_url: ssh://git@git.internal/billing/billing-reports.git
     api_type: GITLAB
     api_endpoint: http://git.internal/api/v4

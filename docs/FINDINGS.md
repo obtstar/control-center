@@ -54,6 +54,7 @@
 | FINDING-046 | 2026-08-17 | D-2 探查（kimi） | 14-multi-repo.md 声明"control-api 启动时读取 repos.yaml"，全仓 grep 无任何注册表解析代码（仅 setup-env.sh 环境同步消费）；任务 repo_key 不校验注册表（FINDING-019 同根） | control-center/docs/architecture/14-multi-repo.md:62；control-api internal/ | 权柄文档声称的运行时行为不存在 | fixed | control-api b943e56：实现注册表启动读取+内存缓存（14.2 声明转真），createTask 经 registry.Registered 校验；热加载仍为规划中（重启生效，与 14.2 表述一致） |
 | FINDING-047 | 2026-08-17 | D-2 实施（kimi） | cmd/control-api/main.go 自建仓起从未提交：.gitignore 模式 `control-api` 匹配任意路径组件，cmd/control-api/ 整目录被忽略 | control-api/.gitignore:1；`git ls-files cmd/` 为空；check-ignore 命中第 1 行 | 构建入口源码无版本管理，clone 仓库后无法 go build | fixed | control-api 939875d（.gitignore 锚定 /control-api + main.go 入库） |
 | FINDING-048 | 2026-08-18 | 任务查看（kimi） | TASK-002 frontmatter 自相矛盾（stage=coding 但 status=merged，merged 属 merge 阶段终态）；且 work_log 在 2026-08-09 pause（id 17）后无任何 resume/testing/merge 记录，状态却已到 merged | control-center/tasks/TASK-002/task.md frontmatter；control.db work_log id 18~30 全属 TASK-001 | 阶段/状态语义错位；merge 前流转脱离引擎，hash 链审计段缺失 | fixed | 本提交：frontmatter 校正 stage=merge（配合 FINDING-029 新语义，看板出现交付确认入口）；work_log 审计缺口为历史事实不回填，此后流转全走引擎 |
+| FINDING-049 | 2026-08-17 | D-2 对账首跑（reconcile） | registry/repos.yaml 各条目含 14.2 未声明字段 path，对账 WARN（首跑起 6 条） | orchestration/reconcile/checks.yaml#registry-schema；path 真实消费方 scripts/lib/repos.sh:188（dest=$BASE_HOME/$path 落盘），不可由 repo_key 推导 | 文档声明与注册表漂移，WARN 长期存在麻痹对账信号 | fixed | 2026-08-18 人裁决 A（文档追认实现）：14.2 字段清单补 path 声明 + checks.yaml allowed 同步；reconcile 四项全 PASS 零 WARN |
 
 ## 已修复（留存痕）
 
@@ -63,3 +64,4 @@
 - 2026-08-17：方案 D-2 对账 loop 上线（control-api 939875d + control-center checks.yaml）：`control-api reconcile` 按 orchestration/reconcile/checks.yaml 校验文档声明 vs 代码事实，CONFLICT 退出码 1；首跑捕获 registry `path` 字段 14.2 未声明（已知 WARN，14.2 修订待人裁决）；Java 复活实验验证 CONFLICT 检出
 - 2026-08-18：open 小项清理批——FINDING-026/028/037/038/040 修复（control-api 8d334fd，钩子+10 包测试全绿）；FINDING-022 router 测试基建（control-web 8d6e009，10 文件 32 用例全绿）；FINDING-015 设计稿标注（本提交）；FINDING-031 文档化入 AGENTS.md §10-7
 - 2026-08-18：裁决批——FINDING-019/046 注册表启动加载+createTask 校验（control-api b943e56，internal/registry 新包，14.2 声明转真）；FINDING-029 merged 稳定态+action=deliver 人工确认（control-api b943e56 + control-web 4b0a5ac，契约先行）；FINDING-036 pre-commit index 快照（control-center 2b48fe1，四幕实验验证）；FINDING-048 TASK-002 frontmatter 校正 stage=merge（随本提交）
+- 2026-08-18：FINDING-049 人裁决 A——14.2 字段清单补 `path` 声明 + checks.yaml allowed 同步（reconcile 四项全 PASS 零 WARN）
