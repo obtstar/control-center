@@ -55,6 +55,7 @@
 | FINDING-047 | 2026-08-17 | D-2 实施（kimi） | cmd/control-api/main.go 自建仓起从未提交：.gitignore 模式 `control-api` 匹配任意路径组件，cmd/control-api/ 整目录被忽略 | control-api/.gitignore:1；`git ls-files cmd/` 为空；check-ignore 命中第 1 行 | 构建入口源码无版本管理，clone 仓库后无法 go build | fixed | control-api 939875d（.gitignore 锚定 /control-api + main.go 入库） |
 | FINDING-048 | 2026-08-18 | 任务查看（kimi） | TASK-002 frontmatter 自相矛盾（stage=coding 但 status=merged，merged 属 merge 阶段终态）；且 work_log 在 2026-08-09 pause（id 17）后无任何 resume/testing/merge 记录，状态却已到 merged | control-center/tasks/TASK-002/task.md frontmatter；control.db work_log id 18~30 全属 TASK-001 | 阶段/状态语义错位；merge 前流转脱离引擎，hash 链审计段缺失 | fixed | 本提交：frontmatter 校正 stage=merge（配合 FINDING-029 新语义，看板出现交付确认入口）；work_log 审计缺口为历史事实不回填，此后流转全走引擎 |
 | FINDING-049 | 2026-08-17 | D-2 对账首跑（reconcile） | registry/repos.yaml 各条目含 14.2 未声明字段 path，对账 WARN（首跑起 6 条） | orchestration/reconcile/checks.yaml#registry-schema；path 真实消费方 scripts/lib/repos.sh:188（dest=$BASE_HOME/$path 落盘），不可由 repo_key 推导 | 文档声明与注册表漂移，WARN 长期存在麻痹对账信号 | fixed | 2026-08-18 人裁决 A（文档追认实现）：14.2 字段清单补 path 声明 + checks.yaml allowed 同步；reconcile 四项全 PASS 零 WARN |
+| FINDING-050 | 2026-08-18 | FINDING-017 处理（kimi） | `piekbs service install` 创建的 indexer 单元执行 `piekbs watch`，但该子命令不存在（cmd/piekbs/main.go 无 case），安装即 crash-loop；Linux（piekbs-indexer）与 macOS（com.piekbs.indexer）同病 | internal/service/systemd.go:28、launchd.go:85；实测 `piekbs watch` → `fatal: unknown subcommand: watch` | 常驻服务安装路径不可用（FINDING-017 子项"未装服务"的前置阻塞） | open | |
 
 ## 已修复（留存痕）
 
