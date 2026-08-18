@@ -3,7 +3,7 @@ task_id: TASK-002
 title: control-web 审批工作台 MVP
 repo_key: control-web
 domain: frontend-dev
-stage: coding
+stage: merge
 status: merged
 priority: ""
 authority: L1
