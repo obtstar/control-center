@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # check-conventions.sh — CONVENTIONS 规模红线机器检查（执行点：git hook / 手动）
 #
-# 用法: check-conventions.sh [repo-root]   （默认 $PWD）
+# 用法: check-conventions.sh [--staged] [repo-root]   （默认 $PWD）
+#
+#   --staged  pre-commit 模式（FINDING-036）：规模红线/Go 项对 git index 快照
+#             跑检查——经 git checkout-index 导出（HEAD+staged），他人留在工作区的
+#             未暂存/未跟踪脏文件不参与，避免整仓扫描误拦截无关 commit。
+#             eslint 项例外：快照无 node_modules（pnpm 在快照内不可用），
+#             改在原始仓对 staged 的 JS/TS 文件逐个执行 eslint。
+#             非 git 仓 / 无 git / index 为空时 WARN 回退整仓扫描。
+#   默认模式  整仓扫描（CI / 手动全量核查用）
 #
 # 检查项与依据（/home/dev/control-api/CONVENTIONS.md）：
 #   §1   单文件 ≤300 行（代码文件；.md/.yaml 等文档/数据文件不在此限）
@@ -22,8 +30,28 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STAGED=0
+if [ "${1:-}" = "--staged" ]; then STAGED=1; shift; fi
 REPO="$(cd "${1:-$PWD}" && pwd)"
 FAILS=0
+
+# --staged（FINDING-036）：导出 git index 快照作为检查对象（HEAD+staged），
+# 工作区里他人未提交的脏文件不再误拦截本次 commit
+if [ "$STAGED" -eq 1 ]; then
+  if command -v git >/dev/null 2>&1 && git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
+    SNAPSHOT="$(mktemp -d)"
+    trap 'rm -rf "$SNAPSHOT"' EXIT
+    if git -C "$REPO" checkout-index --prefix="$SNAPSHOT/" -a 2>/dev/null && [ -n "$(ls -A "$SNAPSHOT")" ]; then
+      ORIG_REPO="$REPO"
+      REPO="$SNAPSHOT"
+      echo "== 模式: index 快照（HEAD+staged；工作区未暂存改动不参与）"
+    else
+      echo "WARN: git index 导出失败或为空，回退整仓扫描"
+    fi
+  else
+    echo "WARN: 非 git 仓或无 git 命令，--staged 回退整仓扫描"
+  fi
+fi
 CITE1='CONVENTIONS.md §1 规模红线——防文件/函数/包/依赖随时间暴涨'
 # 代码文件扩展名（文档/数据类 .md/.yaml/.json/.txt 等不适用 §1 行数红线）
 CODE_EXT=(go py sh js ts tsx jsx java c h cc cpp rs)
@@ -180,22 +208,37 @@ check_govet() {
   fi
 }
 
-# §3 Web：存在 eslint.config.* 时 pnpm lint 零 error
+# §3 Web：存在 eslint.config.* 时 eslint 零 error。
+# 整仓模式跑 pnpm lint；--staged 模式在原始仓对 staged 的 JS/TS 文件逐个 eslint
+# （快照无 node_modules，pnpm 不可用；FINDING-036）
 check_eslint() {
+  local dir="$REPO"
+  if [ "$STAGED" -eq 1 ] && [ -n "${ORIG_REPO:-}" ]; then dir="$ORIG_REPO"; fi
   local cfg=''
   for f in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts; do
-    [ -f "$REPO/$f" ] && cfg="$f" && break
+    [ -f "$dir/$f" ] && cfg="$f" && break
   done
   if [ -z "$cfg" ]; then
     skip '无 eslint.config.*：跳过 eslint 项'
     return
   fi
-  if ! command -v pnpm >/dev/null 2>&1 || [ ! -d "$REPO/node_modules" ]; then
+  if ! command -v pnpm >/dev/null 2>&1 || [ ! -d "$dir/node_modules" ]; then
     warn '§3 eslint：pnpm 或 node_modules 不可用，降级跳过（不 FAIL）；安装依赖后本项恢复强制'
     return
   fi
   local out rc
-  out=$(cd "$REPO" && pnpm lint 2>&1); rc=$?
+  if [ "$dir" != "$REPO" ]; then
+    local files
+    files=$(git -C "$dir" diff --cached --name-only --diff-filter=ACM -- \
+      '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs')
+    if [ -z "$files" ]; then
+      pass '§3 eslint 零 error（无 staged 的 JS/TS 文件）'
+      return
+    fi
+    out=$(cd "$dir" && printf '%s\n' "$files" | xargs pnpm exec eslint 2>&1); rc=$?
+  else
+    out=$(cd "$dir" && pnpm lint 2>&1); rc=$?
+  fi
   if [ "$rc" -ne 0 ]; then
     fail 'eslint 报告 error（见下）' \
       'CONVENTIONS.md §3 代码风格——静态检查全绿方可提交' \

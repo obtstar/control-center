@@ -30,7 +30,8 @@ HOOKS="$GITDIR/hooks"
 HOOK="$HOOKS/pre-commit"
 
 CONTENT="#!/bin/bash
-exec $CHECK \"\$(git rev-parse --show-toplevel)\""
+# --staged：对 git index 快照检查（FINDING-036），他人未提交的工作区脏文件不拦截本提交
+exec $CHECK --staged \"\$(git rev-parse --show-toplevel)\""
 
 mkdir -p "$HOOKS"
 if [ -f "$HOOK" ]; then

@@ -33,7 +33,8 @@ last_verified: 2026-08-17
 6. 合并 (Git 平台人工)【已实现】
    用户在 Git 平台查看 Diff 与报告 → 人工合并
    → Webhook 回传（POST /api/webhooks/merge-event，独立密钥 HMAC）
-   → 任务置 merged 并自动推进 deliver
+   → 任务置 merged 停留待交付（FINDING-029：看板可感知"已合并待交付"）
+   → 人工 action=deliver 确认后推进 deliver（auto，agent 执行交付归档）
 
 7. 发布与归档【部分实现】
    全流程日志写 SQLite work_log（hash 链，verify-log 可校验）
