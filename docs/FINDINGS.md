@@ -53,6 +53,7 @@
 | FINDING-045 | 2026-08-17 | 人指出（用户） | 平台无 backend-go 领域技能：workflow 默认 domain skill 为 backend-java，openapi/代码注释示例同——平台自身 Go 栈反而无对应 skill | control-center orchestration/workflows/{feature-dev,bugfix}.yaml:9；control-api docs/api/openapi.yaml:484 | Go 任务默认加载 Java 约定，skill 组合与平台栈错配 | fixed | control-center 17cff3b（新增 backend-go skill + 默认改 Go，backend-java 保留按 repo_key 覆盖）+ control-api cd185cf + control-web 79e7594（契约/示例同步） |
 | FINDING-046 | 2026-08-17 | D-2 探查（kimi） | 14-multi-repo.md 声明"control-api 启动时读取 repos.yaml"，全仓 grep 无任何注册表解析代码（仅 setup-env.sh 环境同步消费）；任务 repo_key 不校验注册表（FINDING-019 同根） | control-center/docs/architecture/14-multi-repo.md:62；control-api internal/ | 权柄文档声称的运行时行为不存在 | open | 修复=实现注册表解析或修订 14 章，另批处理 |
 | FINDING-047 | 2026-08-17 | D-2 实施（kimi） | cmd/control-api/main.go 自建仓起从未提交：.gitignore 模式 `control-api` 匹配任意路径组件，cmd/control-api/ 整目录被忽略 | control-api/.gitignore:1；`git ls-files cmd/` 为空；check-ignore 命中第 1 行 | 构建入口源码无版本管理，clone 仓库后无法 go build | fixed | control-api 939875d（.gitignore 锚定 /control-api + main.go 入库） |
+| FINDING-048 | 2026-08-18 | 任务查看（kimi） | TASK-002 frontmatter 自相矛盾（stage=coding 但 status=merged，merged 属 merge 阶段终态）；且 work_log 在 2026-08-09 pause（id 17）后无任何 resume/testing/merge 记录，状态却已到 merged | control-center/tasks/TASK-002/task.md frontmatter；control.db work_log id 18~30 全属 TASK-001 | 阶段/状态语义错位；merge 前流转脱离引擎，hash 链审计段缺失 | open | |
 
 ## 已修复（留存痕）
 
