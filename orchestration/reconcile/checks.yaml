@@ -38,3 +38,36 @@ checks:
                 token_ref, openapi_ref, default_branch, max_worktrees,
                 executor_allowed, disabled]
     # 未知字段 = WARN（增量漂移，提示 14.2 未声明）；缺 required = CONFLICT
+
+  - id: kb-mirror-freshness
+    desc: KB 权柄镜像新鲜度（control-wiki/raw/platform/ 派生副本 ↔ 上游 Git 权威；FINDING-051）
+    # mirror_pairs 为唯一镜像清单：kb-sync.sh 与 reconcile 均解析本块（路径相对 home）。
+    # 新增权柄文档/新架构篇章须在此登记，否则不在检索面、对账也漏盯。
+    mirror_pairs:
+      - {upstream: control-center/docs/architecture/00-principles.md, mirror: control-wiki/raw/platform/architecture/00-principles.md}
+      - {upstream: control-center/docs/architecture/01-overview.md, mirror: control-wiki/raw/platform/architecture/01-overview.md}
+      - {upstream: control-center/docs/architecture/02-branch-worktree.md, mirror: control-wiki/raw/platform/architecture/02-branch-worktree.md}
+      - {upstream: control-center/docs/architecture/03-doc-management.md, mirror: control-wiki/raw/platform/architecture/03-doc-management.md}
+      - {upstream: control-center/docs/architecture/04-ai-gateway.md, mirror: control-wiki/raw/platform/architecture/04-ai-gateway.md}
+      - {upstream: control-center/docs/architecture/05-orchestration.md, mirror: control-wiki/raw/platform/architecture/05-orchestration.md}
+      - {upstream: control-center/docs/architecture/06-web.md, mirror: control-wiki/raw/platform/architecture/06-web.md}
+      - {upstream: control-center/docs/architecture/07-workflows.md, mirror: control-wiki/raw/platform/architecture/07-workflows.md}
+      - {upstream: control-center/docs/architecture/08-data-model.md, mirror: control-wiki/raw/platform/architecture/08-data-model.md}
+      - {upstream: control-center/docs/architecture/09-data-flow.md, mirror: control-wiki/raw/platform/architecture/09-data-flow.md}
+      - {upstream: control-center/docs/architecture/10-deployment.md, mirror: control-wiki/raw/platform/architecture/10-deployment.md}
+      - {upstream: control-center/docs/architecture/11-security.md, mirror: control-wiki/raw/platform/architecture/11-security.md}
+      - {upstream: control-center/docs/architecture/12-roadmap.md, mirror: control-wiki/raw/platform/architecture/12-roadmap.md}
+      - {upstream: control-center/docs/architecture/13-repo-template.md, mirror: control-wiki/raw/platform/architecture/13-repo-template.md}
+      - {upstream: control-center/docs/architecture/14-multi-repo.md, mirror: control-wiki/raw/platform/architecture/14-multi-repo.md}
+      - {upstream: control-center/docs/architecture/15-server-module.md, mirror: control-wiki/raw/platform/architecture/15-server-module.md}
+      - {upstream: control-center/docs/architecture/16-linux-permissions.md, mirror: control-wiki/raw/platform/architecture/16-linux-permissions.md}
+      - {upstream: control-center/docs/architecture/17-client-server-design.md, mirror: control-wiki/raw/platform/architecture/17-client-server-design.md}
+      - {upstream: control-center/docs/architecture/18-authority.md, mirror: control-wiki/raw/platform/architecture/18-authority.md}
+      - {upstream: control-center/docs/architecture/README.md, mirror: control-wiki/raw/platform/architecture/README.md}
+      - {upstream: control-center/docs/FINDINGS.md, mirror: control-wiki/raw/platform/FINDINGS.md}
+      - {upstream: control-center/orchestration/workflows/pipeline.yaml, mirror: control-wiki/raw/platform/orchestration/pipeline.yaml}
+      - {upstream: control-center/registry/repos.yaml, mirror: control-wiki/raw/platform/registry/repos.yaml}
+      - {upstream: control-api/CONVENTIONS.md, mirror: control-wiki/raw/platform/CONVENTIONS.md}
+      - {upstream: control-api/DEPENDENCIES.md, mirror: control-wiki/raw/platform/DEPENDENCIES.md}
+      - {upstream: control-api/docs/api/openapi.yaml, mirror: control-wiki/raw/platform/api/openapi.yaml}
+      - {upstream: AGENTS.md, mirror: control-wiki/raw/platform/AGENTS.md}
