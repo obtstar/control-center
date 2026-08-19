@@ -3,11 +3,10 @@ task_id: TASK-002
 title: control-web 审批工作台 MVP
 repo_key: control-web
 domain: frontend-dev
-stage: merge
-status: merged
+stage: deliver
+status: delivered
 priority: ""
 authority: L1
-
 ---
 
 # control-web 审批工作台 MVP
