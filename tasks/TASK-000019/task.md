@@ -1,15 +1,70 @@
 ---
 task_id: TASK-000019
-title: obtstar.top 官网改造：control 平台官网（介绍/架构/快速开始/状态）
-repo_key: obtstar-top
-domain: frontend-dev
-stage: deliver
-status: delivered
+title: 'Agora Phase 1: 数据库 Schema 升级'
+repo_key: ""
+domain: ""
+stage: coding
+status: paused
 priority: ""
 authority: L1
-archived: true
+archived: false
 ---
 
-# obtstar.top 官网改造：control 平台官网（介绍/架构/快速开始/状态）
+# Agora Phase 1: 数据库 Schema 升级
 
-将 obtstar.top 仓库改造为 control 平台官网（人裁决 2026-08-29）：obtstar.top 域名已解析 GitHub Pages（仓库 obtstar/obtstar.top，pages.yml 自动部署 docs/）。现有"研究报告站"内容整体替换为平台官网。内容范围（人确认）：①介绍 + 架构（核心原则/六仓/技术栈/流水线，从 control-center docs 提炼有据）；②快速开始（环境初始化/构建运行，从 AGENTS.md §4 提炼）；③平台状态展示（任务/里程碑静态快照）。不含内网入口链接。保留 pages.yml 部署工作流与 CNAME。验收：obtstar.top 可访问且展示平台官网（Pages 自动部署生效）；内容引用平台文档真实存在；旧报告站内容保留在 git 历史。
+## 任务背景
+
+dialectic.top 网站升级：从辩论平台升级为"Agora 广场政治模式"——古希腊广场模拟器，人类公民与AI公民共同生活、辩论。
+
+## 需求概述
+
+### 已完成（前置工作）
+- ✅ 移除 Kimi OAuth 登录
+- ✅ 修复 ESLint 全绿
+- ✅ 配置 pre-commit hook
+
+### 本次任务范围
+
+**Phase 1: 数据库 Schema 升级**
+
+1. **新增表**
+   - `agents` - AI 公民（Agent）定义
+   - `ai_configs` - 用户 AI 配置（API Key、模型选择）
+   - `friendships` - 好友关系
+   - `topic_invites` - 话题邀请
+   - `agent_assignments` - Agent 派遣到话题
+   - `chat_sessions` - AI 对话会话
+   - `chat_messages` - 对话消息
+
+2. **现有表增强**
+   - `users`: 新增 `credits`（积分）、`freeAgentQuota`（免费Agent配额）
+   - `topics`: 新增 `sourceType`、`status`、`scheduledAt`、`hotMeta`
+   - `debate_arguments`: 新增 `isAgent`、`agentId`
+
+3. **Schema 双写**
+   - MySQL 版本（db/schema.ts）
+   - SQLite 版本（db/schema-sqlite.ts）
+
+4. **确保兼容性**
+   - 本地开发 SQLite 模式正常
+   - Cloudflare D1 部署正常
+   - ensure-schema 自动补列
+
+## 技术约束
+
+- **可移植性**: 代码需能在 Node.js / Workers / Deno 运行
+- **AI 架构**: 用户自配 API Key，平台不托管 AI 服务
+- **零依赖**: 使用 Web Streams API + Web Crypto API
+
+## 参考文档
+
+- `docs/agora-upgrade-plan.md` - 完整升级计划
+- `docs/ai-adapter-design.md` - AI Adapter 架构设计
+
+## 验收标准
+
+- [ ] TypeScript 编译通过 (`npm run check`)
+- [ ] ESLint 全绿 (`npm run lint`)
+- [ ] 本地 dev 服务器正常启动 (`npm run dev`)
+- [ ] 数据库自动迁移（ensure-schema）
+- [ ] pre-commit hook 通过
