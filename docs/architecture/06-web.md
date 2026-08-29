@@ -33,3 +33,9 @@ last_verified: 2026-08-17
 - REST API 调用后端 control-api（Go，`/api/**`），契约以 `control-api/docs/api/openapi.yaml`（OAS 3.1）为准
 - WebSocket/SSE 推送任务状态变更与阶段完成通知
 - 支持 WSL 路径与变更实时预览
+
+## 双线定位（TASK-010 裁决，2026-08-29）
+
+control-web 为**人的审批工作台唯一入口**（审批操作/看板/审计/KB/API 文档，审批按角色路由并留痕 work_log）。
+control-dsh-plugin client 半区仅为 **DSH GUI 内只读投影**（任务/审批/审计列表），**不含审批操作**（M3 不做，凭据不进浏览器）。
+决策依据与约束详见 [19 工作台形态决策](19-workbench-strategy.md)。
