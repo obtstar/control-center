@@ -63,6 +63,7 @@ checks:
       - {upstream: control-center/docs/architecture/16-linux-permissions.md, mirror: control-wiki/raw/platform/architecture/16-linux-permissions.md}
       - {upstream: control-center/docs/architecture/17-client-server-design.md, mirror: control-wiki/raw/platform/architecture/17-client-server-design.md}
       - {upstream: control-center/docs/architecture/18-authority.md, mirror: control-wiki/raw/platform/architecture/18-authority.md}
+      - {upstream: control-center/docs/architecture/19-workbench-strategy.md, mirror: control-wiki/raw/platform/architecture/19-workbench-strategy.md}
       - {upstream: control-center/docs/architecture/README.md, mirror: control-wiki/raw/platform/architecture/README.md}
       - {upstream: control-center/docs/FINDINGS.md, mirror: control-wiki/raw/platform/FINDINGS.md}
       - {upstream: control-center/orchestration/workflows/pipeline.yaml, mirror: control-wiki/raw/platform/orchestration/pipeline.yaml}
