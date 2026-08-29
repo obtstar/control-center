@@ -3,8 +3,8 @@ task_id: TASK-010
 title: 工作台形态决策：双线分工定位（control-web 为审批唯一入口，插件不做 UI M3）
 repo_key: control-center
 domain: wiki-authoring
-stage: coding
-status: running
+stage: deliver
+status: delivered
 priority: ""
 authority: L1
 ---

@@ -3,8 +3,8 @@ task_id: TASK-003
 title: DSH 集成 P1：阶段完成回传（advance webhook）+ control_task_advance 工具
 repo_key: control-api
 domain: backend-go
-stage: merge
-status: awaiting_approval
+stage: deliver
+status: delivered
 priority: ""
 authority: L1
 ---

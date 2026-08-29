@@ -3,8 +3,8 @@ task_id: TASK-005
 title: P2：PieKBS 蒸馏技能化（wiki-distill 技能）
 repo_key: control-center
 domain: wiki-authoring
-stage: testing
-status: awaiting_approval
+stage: deliver
+status: delivered
 priority: ""
 authority: L1
 ---

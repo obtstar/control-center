@@ -3,8 +3,8 @@ task_id: TASK-006
 title: P2 配套：PurgeOrphanWikiFiles 多页蒸馏兼容修复（FINDING-052）
 repo_key: control-piekbs
 domain: backend-go
-stage: testing
-status: awaiting_approval
+stage: deliver
+status: delivered
 priority: ""
 authority: L1
 ---
