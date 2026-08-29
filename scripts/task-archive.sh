@@ -8,11 +8,21 @@
 #   2) 收集产物 → 建 feature 分支 → commit → push → gh pr create（自动 MR，人合并终审）
 #   3) 归档成功后清理工作区副本（备份到 $HOME/.backup-task-dirs/），避免后续 merge 被未跟踪目录阻塞
 #
-# 用法: task-archive.sh [home]     （默认 $HOME；home 下须有 control-center/）
+# 用法: task-archive.sh [home] [--direct-dev]
+#   （默认 $HOME；home 下须有 control-center/）
+#   --direct-dev：平台仓产物直接 commit+push origin dev（TASK-000018 新工作流，无 feature 分支/MR）；
+#                 默认（无参）保留分支+MR 模式（业务仓用）
 # 依赖: git + gh（已登录）；产物入库经 MR 评审（dev 只读规约）
 set -euo pipefail
 
-HOME_DIR="$(cd "${1:-$HOME}" && pwd)"
+DIRECT_DEV=0
+for a in "$@"; do
+  case "$a" in
+    --direct-dev) DIRECT_DEV=1 ;;
+    *) HOME_DIR_ARG="$a" ;;
+  esac
+done
+HOME_DIR="$(cd "${HOME_DIR_ARG:-$HOME}" && pwd)"
 REPO="$HOME_DIR/control-center"
 git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 || { echo "错误: 找不到 control-center 仓库: $REPO" >&2; exit 1; }
 cd "$REPO"
@@ -69,6 +79,26 @@ main() {
     return 0
   fi
 
+  if [ "$DIRECT_DEV" -eq 1 ]; then
+    # 平台仓直推 dev（TASK-000018）：产物直接提交 dev，无 feature 分支/MR
+    for d in "${pending[@]}"; do
+      git add "$d"
+      log "归档(直推 dev): $d"
+    done
+    if ! git diff --cached --quiet; then
+      git commit -m "docs(tasks): 自动归档 delivered 任务产物（task-archive.sh --direct-dev）"
+      GIT_SSH_COMMAND="$GIT_SSH_COMMAND" git push origin dev
+      log "已直推 dev"
+    fi
+    for d in "${pending[@]}"; do
+      bk="$HOME/.backup-task-dirs/$(basename "$d")"
+      mkdir -p "$HOME/.backup-task-dirs"
+      [ -e "$bk" ] || cp -r "$REPO/$d" "$bk"
+      rm -rf "$REPO/$d"
+      log "已清理主仓副本（已直推 dev）: $d"
+    done
+    return 0
+  fi
   log "待归档 ${#pending[@]} 个任务: ${pending[*]}"
   local branch="feature/task-archive-$(date +%m%d%H%M%S)"
   local wt="$HOME/.task-archive-wt-$branch"

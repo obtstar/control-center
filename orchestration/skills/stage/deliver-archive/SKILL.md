@@ -10,7 +10,7 @@ merged 状态的任务（stage=merge, status=merged）+ 人工 deliver 确认后
 ## 步骤
 1. 人工调 control_task_action deliver（merge/merged 才可触发）→ 任务进入 deliver 阶段（running）
 2. 用 control_task_execute 确认任务在 deliver 阶段、取阶段规格
-3. **cleanup worktree**：删除任务 worktree（`~/wt/<repo>/TASK-*/` 或任务目录外的临时工作区；平台规约 7 天回收，交付后立即清理）
+3. **cleanup worktree**：删除任务 worktree（`~/wt/<repo>/TASK-*/` 或任务目录外的临时工作区；平台规约 7 天回收，交付后立即清理）。**平台仓（repo_key 以 control- 开头）无 worktree（TASK-000018 新工作流：dev 直开），跳过本步**；业务仓（如 dialectic-top）保留
 4. **archive report**：汇总本任务全生命周期产物（task.md 权威 + report-*.md + work_log 关键流转）生成 `report-deliver.md` 落任务目录
 5. 调 control_task_advance 声明 deliver 完成 → 末阶段（IsLast）→ delivered
 6. **auto archive（自动归档，TASK-000013 机制）**：delivered 后运行

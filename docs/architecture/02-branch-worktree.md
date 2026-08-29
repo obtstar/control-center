@@ -9,6 +9,13 @@ last_verified: 2026-08-17
 
 > 多仓库的注册、接入、配额与权限管理见 [14 多仓库管理](14-multi-repo.md)。
 
+## 分支策略（平台仓 vs 业务仓，TASK-000018 人裁决 2026-08-29）
+
+- **平台仓**（control-*）：**dev 直开**——开发/提交/推送直接在 dev 分支（无 worktree、无 feature 分支、无 MR）；
+  main 只读；代码合入 dev 即视为合并（merge 阶段回传语义不变，无 Git 平台 MR 终审）。
+- **业务仓**（如 dialectic-top）：保留本文件原有分支策略——main/dev/release 只读主干，agent 只写 feature，
+  worktree 隔离，MR 团队终审。
+
 ## 分支策略（业务仓：main → dev → release 只读主干，agent 只写 feature）
 
 | 分支 | 切出关系 | 权限 | 生命周期 |
