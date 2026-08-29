@@ -4,7 +4,7 @@ title: 'Agora Phase 1: 数据库 Schema 升级'
 repo_key: ""
 domain: ""
 stage: coding
-status: paused
+status: awaiting_approval
 priority: ""
 authority: L1
 archived: false
