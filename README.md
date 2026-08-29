@@ -53,8 +53,9 @@
 ## 环境初始化（两阶段）
 
 ```bash
-# 阶段一（root，curl|bash 单文件）：校验 + 创建用户(dev/agent) + 克隆本仓 + 首次登录钩子
-curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/dev/scripts/init-env.sh | sudo bash -s --
+# 阶段一（root，先落盘再执行：FINDING-053 拆分后需 source scripts/lib/，管道模式不可用）
+curl -fsSL https://gh.dpik.top/https://raw.githubusercontent.com/obtstar/control-center/dev/scripts/init-env.sh -o /tmp/init-env.sh
+sudo bash /tmp/init-env.sh --
 
 # 阶段二（dev 身份，首次登录自动触发或手动）：镜像/仓库同步/工具链/PieKBS/pi/openwiki/compose
 bash ~/control-center/scripts/setup-env.sh [--executor|--check|--skip-*]
