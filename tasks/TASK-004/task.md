@@ -3,8 +3,8 @@ task_id: TASK-004
 title: P1 收尾：LiteLLM 死代码清理 + pi 执行器退役（internal/agent）
 repo_key: control-api
 domain: backend-go
-stage: merge
-status: awaiting_approval
+stage: deliver
+status: delivered
 priority: ""
 authority: L1
 ---
