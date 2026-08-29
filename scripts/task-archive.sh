@@ -71,17 +71,36 @@ main() {
 
   log "待归档 ${#pending[@]} 个任务: ${pending[*]}"
   local branch="feature/task-archive-$(date +%m%d%H%M%S)"
-  git switch -c "$branch" origin/dev 2>/dev/null || git checkout -b "$branch" origin/dev
+  local wt="$HOME/.task-archive-wt-$branch"
+  # 在独立临时 worktree 归档（不动主仓工作区/分支；主仓 tasks/ 副本稍后清理）
+  git worktree add -b "$branch" "$wt" origin/dev >/dev/null 2>&1
   for d in "${pending[@]}"; do
-    git add "$d"
+    mkdir -p "$wt/$d"
+    cp -r "$REPO/$d/." "$wt/$d/"
     log "归档: $d"
   done
-  git commit -m "docs(tasks): 自动归档 delivered 任务产物（task-archive.sh）" || true
-  GIT_SSH_COMMAND="$GIT_SSH_COMMAND" git push -u origin "$branch" >/dev/null 2>&1
-  gh pr create --base dev --head "$branch" \
-    --title "docs(tasks): 自动归档 delivered 任务产物" \
-    --body "task-archive.sh 自动归档：${pending[*]}。人合并终审（dev 只读规约）。" || true
-  log "MR 已建（人合并后任务产物入库）；分支: $branch"
+  ( cd "$wt" \
+    && git add "${pending[@]}" \
+    && git commit -m "docs(tasks): 自动归档 delivered 任务产物（task-archive.sh）" \
+    && GIT_SSH_COMMAND="$GIT_SSH_COMMAND" git push -u origin "$branch" )
+  if ! gh pr create --base dev --head "$branch" \
+      --title "docs(tasks): 自动归档 delivered 任务产物" \
+      --body "task-archive.sh 自动归档：${pending[*]}。人合并终审（dev 只读规约）。" >/dev/null 2>&1; then
+    log "WARN: gh pr create 失败（分支已推送: $branch，请人工建 MR）"
+  else
+    log "MR 已建（人合并后任务产物入库）；分支: $branch"
+  fi
+  git worktree remove "$wt" >/dev/null 2>&1 || git worktree remove --force "$wt" >/dev/null 2>&1
+  # 归档后清理主仓未跟踪副本（备份至 ~/.backup-task-dirs/，防 merge 阻塞）
+  for d in "${pending[@]}"; do
+    if [ -d "$REPO/$d" ]; then
+      bk="$HOME/.backup-task-dirs/$(basename "$d")"
+      mkdir -p "$HOME/.backup-task-dirs"
+      [ -e "$bk" ] || cp -r "$REPO/$d" "$bk"
+      rm -rf "$REPO/$d"
+      log "已清理主仓副本（已入归档分支）: $d"
+    fi
+  done
 }
 
 main "$@"
