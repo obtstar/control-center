@@ -83,3 +83,14 @@ repos:
   #   max_worktrees: 3
   #   executor_allowed: true
   #   disabled: false
+
+  - repo_key: dialectic-top
+    name: dialectic.top 网站
+    path: wt/projects/dialectic.top/dev
+    git_url: git@github.com:dialectic-top/dialectic.top.git
+    api_type: GITHUB
+    token_ref: env:GIT_TOKEN
+    default_branch: main
+    max_worktrees: 3
+    executor_allowed: true
+    disabled: false
