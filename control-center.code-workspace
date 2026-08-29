@@ -21,8 +21,16 @@
       "path": "../control-db"
     },
     {
+      "name": "control-dsh-plugin(dev)",
+      "path": "../control-dsh-plugin"
+    },
+    {
       "name": "项目",
       "path": "../wt"
+    },
+    {
+      "name": "dsh",
+      "path": "../.dsh"
     }
   ],
   "settings": {
