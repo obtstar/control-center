@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # DSH 集成 P1：阶段完成回传（advance webhook）+ control_task_advance 工具

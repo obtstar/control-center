@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # control-web 审批工作台 MVP

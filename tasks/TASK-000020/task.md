@@ -7,7 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
-archived: false
+archived: true
 ---
 
 # 任务看板：delivered 任务归档功能

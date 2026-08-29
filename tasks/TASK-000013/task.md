@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # 台账卫生：FINDING 编号去重（双 043）

@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # DSH 集成到 control-web：AI 助手面板

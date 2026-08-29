@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # P2：PieKBS 蒸馏技能化（wiki-distill 技能）

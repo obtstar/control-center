@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # 开发流程调整：平台仓 dev 直开（worktree 移交业务仓）

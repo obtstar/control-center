@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # 看板筛选优化：仓库/阶段/状态/更新人列下拉框筛选

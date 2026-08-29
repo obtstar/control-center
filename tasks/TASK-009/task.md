@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # 插件深度集成 v0.2：执行面工具 + 会话绑定前置 + 末段技能

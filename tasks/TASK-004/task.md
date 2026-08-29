@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # P1 收尾：LiteLLM 死代码清理 + pi 执行器退役（internal/agent）

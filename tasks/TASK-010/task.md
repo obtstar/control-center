@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # 工作台形态决策：双线分工定位（control-web 为审批唯一入口，插件不做 UI M3）

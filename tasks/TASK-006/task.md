@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # P2 配套：PurgeOrphanWikiFiles 多页蒸馏兼容修复（FINDING-052）

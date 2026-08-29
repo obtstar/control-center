@@ -7,6 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
+archived: true
 ---
 
 # TASK-008 Phase 2：内联 AI 操作（行内按钮/审批建议/全局入口）
