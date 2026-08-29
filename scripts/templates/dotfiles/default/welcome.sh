@@ -13,7 +13,6 @@ __cc_welcome() {
   printf '\033[0;36m│\033[0m %s@%s  %s\n' "$USER" "$(hostname)" "$(date '+%Y-%m-%d %H:%M')"
   printf '\033[0;36m│\033[0m repo: control-center(%s)  wt: %s 个工作区\n' "${branch:-?}" "$wt_count"
   printf '\033[0;36m│\033[0m env: %s\n' "${tools:-（无工具链）}"
-  printf '\033[0;36m│\033[0m wiki: piekbs:8766  llm: %s\n' "${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 
   local handy="" miss="" h
   for h in xh dust jq lazygit zoxide yazi git tmux glow fzf; do

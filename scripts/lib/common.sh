@@ -99,18 +99,17 @@ chk_fail() { printf '  \033[1;31m[FAIL]\033[0m %s\n' "$*"; CHECK_FAIL=$((CHECK_F
 render_tmpl() { # $1=模板名（相对 TMPL_DIR）$2=目标路径 $3=权限（可选）
   local tmpl="${TMPL_DIR:-$SCRIPT_DIR/templates}/$1" dest="$2" mode="${3:-}"
   [[ -f "$tmpl" ]] || { warn "模板不存在: $tmpl"; return 1; }
-  local varlist='$BASE_HOME $OWNER $LITELLM_ENDPOINT $CONTROL_API $PIP_INDEX_URL $UV_INDEX_URL $NPM_REGISTRY'
+  local varlist='$BASE_HOME $OWNER $CONTROL_API $PIP_INDEX_URL $UV_INDEX_URL $NPM_REGISTRY'
   if command -v envsubst &>/dev/null; then
     BASE_HOME="$BASE_HOME" OWNER="$OWNER" \
-    LITELLM_ENDPOINT="$LITELLM_ENDPOINT" CONTROL_API="${CONTROL_API:-}" \
+    CONTROL_API="${CONTROL_API:-}" \
     PIP_INDEX_URL="$PIP_INDEX_URL" UV_INDEX_URL="$UV_INDEX_URL" \
     NPM_REGISTRY="$NPM_REGISTRY" \
       envsubst "$varlist" < "$tmpl" > "$dest"
   else
     sed -e "s|\$BASE_HOME|$BASE_HOME|g" \
         -e "s|\$OWNER|$OWNER|g" \
-        -e "s|\$LITELLM_ENDPOINT|$LITELLM_ENDPOINT|g" \
-        -e "s|\$CONTROL_API|${CONTROL_API:-}|g" \
+                -e "s|\$CONTROL_API|${CONTROL_API:-}|g" \
         -e "s|\$PIP_INDEX_URL|$PIP_INDEX_URL|g" \
         -e "s|\$UV_INDEX_URL|$UV_INDEX_URL|g" \
         -e "s|\$NPM_REGISTRY|$NPM_REGISTRY|g" \

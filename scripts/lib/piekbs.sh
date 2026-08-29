@@ -33,7 +33,7 @@ init_piekbs() {
     log "跳过: piekbs 二进制"
   fi
 
-  # 2. KB 初始化与配置（distill 走 LiteLLM 代理，FTS 无需 embedding）
+  # 2. KB 初始化与配置（蒸馏由 DSH wiki-distill 技能承担，FTS 无需 embedding）
   as_target_user "$USER_ENV command -v piekbs" &>/dev/null || return 0
   local kb="$BASE_HOME/control-wiki"
   if [[ ! -d "$kb/wiki" ]]; then
@@ -64,7 +64,7 @@ init_piekbs() {
   if [[ -d "$kb" && ! -f "$kb/config.yaml" ]]; then
     render_tmpl "piekbs-config.yaml.tmpl" "$kb/config.yaml" 600
     own "$kb"
-    log "已生成 $kb/config.yaml（distill → LiteLLM cheap 模型，token 需填入）"
+    log "已生成 $kb/config.yaml（蒸馏由 DSH wiki-distill 技能承担）"
     log "启动: piekbs serve（127.0.0.1:8766；局域网经 ssh -L 8766:localhost:8766 访问）"
     log "pi 接入 MCP: http://127.0.0.1:8766/mcp"
   fi

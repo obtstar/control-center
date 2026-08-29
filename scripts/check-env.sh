@@ -8,7 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OWNER="${OWNER_USER:-dev}"
 BASE_HOME="/home/$OWNER"
 EXECUTOR=0
-LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 
 usage() {
   cat <<EOF
@@ -17,7 +16,6 @@ usage() {
   --executor     执行节点分支校验
   -h, --help     显示帮助
 环境变量:
-  LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
   OWNER_USER        同 --owner
 EOF
 }

@@ -39,7 +39,6 @@ usage() {
   GIT_REMOTE_HOST   远程主机/组织（默认 github.com/obtstar）
   GIT_REMOTE_BASE   远程地址全量前缀（优先于 GIT_PROTO 组合）
   GH_PROXY          GitHub 加速代理前缀（如 https://gh.dpik.top）
-  LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
 EOF
 }
 

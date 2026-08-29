@@ -84,11 +84,6 @@ check_pre() {
       || chk_warn "目录不存在: $BASE_HOME（初始化时创建）"
   fi
 
-  if command -v curl &>/dev/null; then
-    curl -sf --max-time 5 -o /dev/null "$LITELLM_ENDPOINT/v1/models" \
-      && chk_pass "LiteLLM 代理可达: $LITELLM_ENDPOINT" \
-      || chk_warn "LiteLLM 代理暂不可达（$LITELLM_ENDPOINT）"
-  fi
 }
 
 check_post() {
