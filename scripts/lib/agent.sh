@@ -63,23 +63,6 @@ install_pi_packages() {
 install_agent_tooling() { # $1=目标 home $2=目标用户（可选，root 时 chown）
   local home="$1" user="${2:-}"
 
-  # ~/.pi/models.json：自定义 provider 指向企业 LiteLLM 代理（04 章）
-  mkdir -p "$home/.pi"
-  if [[ ! -f "$home/.pi/models.json" ]]; then
-    cat > "$home/.pi/models.json" <<EOF
-{
-  "providers": [{
-    "name": "litellm-enterprise",
-    "base_url": "$LITELLM_ENDPOINT/v1",
-    "api_key": "\${LITELLM_API_KEY}",
-    "models": ["coding", "cheap", "heavy"]
-  }]
-}
-EOF
-    chmod 600 "$home/.pi/models.json"
-    log "已生成 $home/.pi/models.json（LiteLLM 代理，别名 coding/cheap/heavy）"
-  fi
-
   # 5.2b pi 基本设置：访问范围限定工作用户 home，敏感路径保护（16 章纵深防御）
   local settings="$home/.pi/settings.json"
   if [[ ! -f "$settings" ]]; then

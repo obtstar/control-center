@@ -24,11 +24,6 @@ check_pre() {
     [[ -e "$BASE_HOME" ]] && chk_pass "目录存在: $BASE_HOME（写权限以 root 初始化为准）" \
       || chk_warn "目录不存在: $BASE_HOME（初始化时创建）"
   fi
-  if command -v curl &>/dev/null; then
-    curl -sf --max-time 5 -o /dev/null "${LITELLM_ENDPOINT:-http://litellm.internal:4000}/v1/models" \
-      && chk_pass "LiteLLM 代理可达" \
-      || chk_warn "LiteLLM 代理暂不可达（${LITELLM_ENDPOINT:-http://litellm.internal:4000}）"
-  fi
 }
 
 interactive_setup() {

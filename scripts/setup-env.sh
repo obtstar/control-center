@@ -18,7 +18,6 @@ SKIP_REPOS=0
 SKIP_TOOLING=0
 CHECK_ONLY=0
 CONTROL_API=""
-LITELLM_ENDPOINT="${LITELLM_ENDPOINT:-http://litellm.internal:4000}"
 # pip/uv 镜像：优先内网镜像，未设置时默认清华镜像
 export PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 export UV_INDEX_URL="${UV_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
@@ -46,7 +45,6 @@ usage() {
   NVM_NODEJS_ORG_MIRROR  nvm 下载 Node 的镜像（默认 npmmirror）
   GIT_PROTO / GIT_REMOTE_HOST / GIT_REMOTE_BASE  仓库远程构造
   CONTROL_WIKI_REMOTE  PieKBS 知识库远程仓（默认 \$GIT_REMOTE_BASE/control-wiki.git）
-  LITELLM_ENDPOINT  LiteLLM 代理地址（默认 http://litellm.internal:4000）
 EOF
 }
 

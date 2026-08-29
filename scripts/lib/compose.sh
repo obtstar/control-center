@@ -8,7 +8,6 @@ init_compose() {
   [[ -f "$deploy/.env" ]] || cat > "$deploy/.env" <<'EOF'
 # 测试环境专用，生产改用 Vault/密钥管理服务
 DB_PASSWORD=change-me
-LITELLM_API_KEY=change-me
 EOF
   chmod 600 "$deploy/.env"
 
@@ -30,7 +29,6 @@ services:
       - DB_URL=jdbc:mysql://mysql:3306/control?useSSL=false&characterEncoding=utf8mb4
       - DB_USER=control
       - DB_PASSWORD=\${DB_PASSWORD}
-      - LITELLM_ENDPOINT=http://litellm.internal:4000
       - VECTOR_DB_ENDPOINT=http://milvus:19530
     volumes:
       - $BASE_HOME/wt:/wt
