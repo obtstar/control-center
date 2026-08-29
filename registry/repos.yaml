@@ -63,6 +63,15 @@ repos:
     default_branch: dev
     executor_allowed: false
 
+  - repo_key: control-dsh-plugin
+    name: DSH 集成插件（control×DSH 桥：control-api 工具 + 文档）
+    path: control-dsh-plugin       # 顶级目录（gitdir 集中 ~/.repos/control-dsh-plugin.git）
+    git_url: git@github.com:obtstar/control-dsh-plugin.git
+    api_type: GITHUB
+    default_branch: dev
+    executor_allowed: false        # 平台组件，不走 wt 调度
+    disabled: false
+
   # 业务仓库按同 schema 登记（示例）：
   # - repo_key: billing-core
   #   path: wt/billing-core/dev
