@@ -90,13 +90,7 @@ main() {
       GIT_SSH_COMMAND="$GIT_SSH_COMMAND" git push origin dev
       log "已直推 dev"
     fi
-    for d in "${pending[@]}"; do
-      bk="$HOME/.backup-task-dirs/$(basename "$d")"
-      mkdir -p "$HOME/.backup-task-dirs"
-      [ -e "$bk" ] || cp -r "$REPO/$d" "$bk"
-      rm -rf "$REPO/$d"
-      log "已清理主仓副本（已直推 dev）: $d"
-    done
+    # direct-dev：产物已 commit+push dev（tracked），无需清理工作区（非未跟踪副本）
     return 0
   fi
   log "待归档 ${#pending[@]} 个任务: ${pending[*]}"
