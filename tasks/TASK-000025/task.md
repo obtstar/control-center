@@ -7,7 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
-archived: false
+archived: true
 ---
 
 # Agora Phase 5: AI 对话系统
