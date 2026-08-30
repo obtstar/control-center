@@ -7,7 +7,7 @@ stage: deliver
 status: delivered
 priority: ""
 authority: L1
-archived: false
+archived: true
 ---
 
 # Agora Phase 1: 数据库 Schema 升级
